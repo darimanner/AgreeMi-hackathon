@@ -2,7 +2,7 @@
 name = "hackathon-backend-starter-2026"
 version = "0.1.0"
 description = "Add your description here"
-requires-python = ">=3.13.5"
+requires-python = ">=3.12.11"
 dependencies = [
     "alembic>=1.18.4",
     "asyncpg>=0.31.0",
