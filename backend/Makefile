@@ -10,7 +10,7 @@ setup:
 	uv sync
 
 requirements:
-	uv export --format requirements.txt
+	uv export --format requirements.txt > requirements.txt
 
 start:
 	uv run uvicorn src.main:app --host 0.0.0.0 --port 8001
