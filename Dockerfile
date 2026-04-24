@@ -9,14 +9,14 @@ WORKDIR /app
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    WORKDIR=/app \
     PYTHONPATH=/app/src
 
-# Copy local code to the container image.
+# Copy project files
 COPY . .
 
-# Install project dependencies
-RUN uv pip install --system --no-cache -r requirements.txt
+# Install dependencies using uv
+RUN uv sync --frozen --no-cache
 
-# Run the web service on container startup.
-CMD ["hypercorn", "src.main:app", "--bind", "::8000"]
+# Run migrations and then start the web service.
+# 'exec' ensures the app receives signals (like SIGTERM) directly.
+CMD sh -c "uv run alembic upgrade head && exec uv run hypercorn src.main:app --bind 0.0.0.0:${PORT:-8000}"
