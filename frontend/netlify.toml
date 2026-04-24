@@ -4,6 +4,7 @@
 
 [build.environment]
   VITE_API_URL = "/backend"
+  VITE_WS_URL = "https://hackathon-backend-starter-2026-production.up.railway.app"
 
 [[redirects]]
   from = "/backend/*"

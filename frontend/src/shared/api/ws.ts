@@ -1,4 +1,4 @@
-import { buildApiUrl } from './client';
+import { WS_BASE_URL } from './config';
 
 export type ChatSocketMessage = {
   id: string;
@@ -11,6 +11,22 @@ export type ChatSocketMessage = {
   attachments: Array<{ id: string; filename: string; content_type: string }>;
 };
 
+function buildSocketUrl(path: string, query?: Record<string, string | number | undefined>): string {
+  const baseUrl = WS_BASE_URL.startsWith('http') || WS_BASE_URL.startsWith('ws')
+    ? `${WS_BASE_URL}/`
+    : `${window.location.origin}${WS_BASE_URL}/`;
+  const url = new URL(path.replace(/^\/+/, ''), baseUrl);
+
+  for (const [key, value] of Object.entries(query ?? {})) {
+    if (value !== undefined && value !== '') {
+      url.searchParams.set(key, String(value));
+    }
+  }
+
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+  return url.toString();
+}
+
 export function connectChatSocket(
   chatId: string,
   token: string,
@@ -21,7 +37,7 @@ export function connectChatSocket(
   }
 ): WebSocket {
   const socket = new WebSocket(
-    buildApiUrl(`/ws/${encodeURIComponent(chatId)}`).replace(/^http/, 'ws') + `?token=${encodeURIComponent(token)}`
+    buildSocketUrl(`/ws/${encodeURIComponent(chatId)}`, { token })
   );
 
   socket.addEventListener('message', (event) => {
