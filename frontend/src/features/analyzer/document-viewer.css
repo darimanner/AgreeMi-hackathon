@@ -1,0 +1,188 @@
+.docview {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+}
+
+/* Header */
+.docview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.docview-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.docview-filename {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.docview-filename-icon { font-size: 16px; }
+.docview-stats {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Score ring */
+.docview-score-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.docview-score {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.docview-score-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.docview-score-val {
+  font-size: 13px;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  color: var(--color-text-primary);
+  position: relative;
+  z-index: 1;
+}
+.docview-score-label {
+  display: flex;
+  flex-direction: column;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+.docview-score-grade {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+/* Legend */
+.docview-legend {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 20px;
+  background: var(--color-surface-2);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.legend-dot {
+  width: 8px;
+  height: 4px;
+  border-radius: 2px;
+}
+.legend-dot--critical { background: var(--color-error); }
+.legend-dot--warning  { background: var(--color-warning); }
+
+/* Content area */
+.docview-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 24px;
+}
+
+.docview-text {
+  font-size: 15px;
+  line-height: 2;
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.docview-plain { white-space: pre-wrap; }
+
+/* Highlighted marks */
+.docview-mark {
+  position: relative;
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 1px 2px;
+  transition: var(--transition);
+  text-decoration: underline;
+  text-decoration-style: wavy;
+  text-underline-offset: 3px;
+}
+.docview-mark--critical {
+  background: rgba(255,77,77,0.12);
+  color: #ff8080;
+  text-decoration-color: var(--color-error);
+}
+.docview-mark--critical:hover,
+.docview-mark--critical.is-selected {
+  background: rgba(255,77,77,0.22);
+  box-shadow: 0 0 0 1px rgba(255,77,77,0.3);
+}
+.docview-mark--warning {
+  background: rgba(245,158,11,0.12);
+  color: #fbbf24;
+  text-decoration-color: var(--color-warning);
+}
+.docview-mark--warning:hover,
+.docview-mark--warning.is-selected {
+  background: rgba(245,158,11,0.22);
+  box-shadow: 0 0 0 1px rgba(245,158,11,0.3);
+}
+
+/* Tooltip on hover */
+.docview-mark-tooltip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-surface-3);
+  border: 1px solid var(--color-border-2);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  z-index: 50;
+  box-shadow: var(--shadow-md);
+  flex-direction: column;
+  gap: 6px;
+  min-width: 200px;
+}
+.docview-mark:hover .docview-mark-tooltip {
+  display: flex;
+}
+.docview-mark-tooltip-title {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.docview-mark-tooltip-hint {
+  color: var(--color-text-muted);
+  font-size: 11px;
+}

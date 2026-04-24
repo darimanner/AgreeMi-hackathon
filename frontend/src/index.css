@@ -1,44 +1,280 @@
-/* 1. Убираем box-sizing для всех элементов */
-*, *::before, *::after {
-  box-sizing: border-box;
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* ───────────────────── DESIGN TOKENS ───────────────────── */
+:root {
+  /* Lime green palette */
+  --color-lime-50:  #f4ffe0;
+  --color-lime-100: #e4fca8;
+  --color-lime-200: #cbf541;
+  --color-lime-300: #b8f005;
+  --color-lime-400: #a3e600;
+  --color-lime-500: #8fd400;
+  --color-lime-600: #70a800;
+  --color-lime-700: #527c00;
+
+  /* Neutrals - dark mode */
+  --color-bg:       #0d0f0e;
+  --color-surface:  #141716;
+  --color-surface-2:#1a1e1b;
+  --color-surface-3:#212620;
+  --color-border:   #2a2f28;
+  --color-border-2: #363d34;
+
+  /* Text */
+  --color-text-primary:   #eef2ec;
+  --color-text-secondary: #8a9488;
+  --color-text-muted:     #515a4f;
+
+  /* Semantic */
+  --color-error:   #ff4d4d;
+  --color-warning: #f59e0b;
+  --color-success: #22c55e;
+  --color-info:    #38bdf8;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Radius */
+  --radius-sm:  6px;
+  --radius-md:  10px;
+  --radius-lg:  16px;
+  --radius-xl:  24px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm:   0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md:   0 4px 16px rgba(0,0,0,0.5);
+  --shadow-lime: 0 0 24px rgba(163,230,0,0.15);
+  --shadow-lime-sm: 0 0 12px rgba(163,230,0,0.1);
+
+  /* Typography */
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Transitions */
+  --transition: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* 2. Убираем внешние отступы у всего */
-* {
+/* ───────────────────── RESET & BASE ───────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
-/* 3. Улучшаем плавность прокрутки */
-html {
-  scroll-behavior: smooth;
-}
+html { scroll-behavior: smooth; }
 
-/* 4. Настраиваем body для нормальной работы высоты */
 body {
-  min-height: 100vh;
-  text-rendering: optimizeSpeed;
-  line-height: 1.5;
+  font-family: var(--font-sans);
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  overflow-x: hidden;
 }
 
-/* 5. Упрощаем работу с картинками */
-img, picture, video, canvas, svg {
-  display: block;
-  max-width: 100%;
+#root { min-height: 100vh; display: flex; flex-direction: column; }
+
+/* ───────────────────── SCROLLBAR ───────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--color-surface); }
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-2);
+  border-radius: var(--radius-full);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--color-lime-600); }
+
+/* ───────────────────── TYPOGRAPHY ───────────────────── */
+h1,h2,h3,h4,h5,h6 {
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
 }
 
-/* 6. Наследуем шрифты для инпутов и кнопок */
-input, button, textarea, select {
-  font: inherit;
+/* ───────────────────── UTILITY CLASSES ───────────────────── */
+.text-lime   { color: var(--color-lime-300); }
+.text-muted  { color: var(--color-text-secondary); }
+.text-error  { color: var(--color-error); }
+.font-mono   { font-family: var(--font-mono); }
+
+.flex        { display: flex; }
+.flex-col    { flex-direction: column; }
+.items-center{ align-items: center; }
+.justify-between { justify-content: space-between; }
+.gap-2       { gap: var(--space-2); }
+.gap-3       { gap: var(--space-3); }
+.gap-4       { gap: var(--space-4); }
+
+/* ───────────────────── ANIMATIONS ───────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes pulse-lime {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(163,230,0,0.3); }
+  50%       { box-shadow: 0 0 0 8px rgba(163,230,0,0); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-6px); }
+}
+@keyframes kanbanSlide {
+  from { opacity: 0; transform: scale(0.96) translateY(20px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes typewriter {
+  from { width: 0; }
+  to   { width: 100%; }
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
 }
 
-/* 7. Убираем анимации для тех, кто их не любит (доступность) */
-@media (prefers-reduced-motion: reduce) {
-  * {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
+.animate-fade-in    { animation: fadeIn 0.4s ease both; }
+.animate-slide-left { animation: slideInLeft 0.4s ease both; }
+.animate-slide-right{ animation: slideInRight 0.4s ease both; }
+.animate-kanban     { animation: kanbanSlide 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+
+/* ───────────────────── GLASS CARD ───────────────────── */
+.glass {
+  background: rgba(20, 23, 22, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
 }
+.glass-hover:hover {
+  border-color: var(--color-lime-600);
+  box-shadow: var(--shadow-lime-sm);
+  transition: var(--transition);
+}
+
+/* ───────────────────── BUTTONS ───────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: var(--transition);
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--color-lime-300), var(--color-lime-500));
+  color: #0d1600;
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, var(--color-lime-200), var(--color-lime-400));
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lime);
+}
+.btn-primary:active { transform: translateY(0); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+.btn-ghost:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-2);
+}
+
+.btn-icon {
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-icon:hover {
+  background: var(--color-surface-3);
+  color: var(--color-text-primary);
+}
+
+/* ───────────────────── BADGE ───────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.badge-error   { background: rgba(255,77,77,0.15);  color: #ff6b6b; border: 1px solid rgba(255,77,77,0.2); }
+.badge-warning { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.2); }
+.badge-success { background: rgba(34,197,94,0.15);  color: #4ade80; border: 1px solid rgba(34,197,94,0.2); }
+.badge-lime    { background: rgba(163,230,0,0.12);  color: var(--color-lime-300); border: 1px solid rgba(163,230,0,0.2); }
+.badge-neutral { background: var(--color-surface-3); color: var(--color-text-secondary); border: 1px solid var(--color-border); }
+
+/* ───────────────────── SKELETON ───────────────────── */
+.skeleton {
+  background: linear-gradient(90deg,
+    var(--color-surface-2) 25%,
+    var(--color-surface-3) 50%,
+    var(--color-surface-2) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-sm);
+}
+
+/* ───────────────────── TOOLTIP ───────────────────── */
+.tooltip-container { position: relative; }
+.tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-surface-3);
+  border: 1px solid var(--color-border-2);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--transition);
+  z-index: 100;
+}
+.tooltip-container:hover .tooltip { opacity: 1; }
