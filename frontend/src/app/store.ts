@@ -123,7 +123,7 @@ interface AppStore {
   updateTaskColumn: (taskId: string, column: KanbanTask['column']) => void;
 }
 
-export const useAppStore = create<AppStore>((set, get) => ({
+export const useAppStore = create<AppStore>((set) => ({
   appState: 'upload',
   document: null,
   chatMessages: [...MOCK_CHAT],
@@ -134,7 +134,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   setAppState: (state) => set({ appState: state }),
 
-  uploadDocument: async (_file: File) => {
+  uploadDocument: async () => {
     set({ appState: 'analyzing', uploadProgress: 0 });
 
     // Simulate progress
