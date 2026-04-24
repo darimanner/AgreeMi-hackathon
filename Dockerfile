@@ -11,11 +11,16 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app/src
 
-# Copy project files
-COPY . .
+# Copy dependency files first (for better caching)
+COPY pyproject.toml uv.lock ./
 
 # Install dependencies using uv
 RUN uv sync --frozen --no-cache
+
+# Copy application code
+COPY src ./src
+COPY alembic ./alembic
+COPY alembic.ini ./
 
 # Run migrations and then start the web service.
 # 'exec' ensures the app receives signals (like SIGTERM) directly.
