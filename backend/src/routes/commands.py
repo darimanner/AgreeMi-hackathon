@@ -65,14 +65,14 @@ async def _save_and_broadcast(
     Returns:
         Saved Message ORM instance.
     """
-    async with session.begin():
-        msg = Message(
-            chat_id=chat_id,
-            author_id=None,  # machine-generated
-            role=role,
-            content=content,
-        )
-        session.add(msg)
+    msg = Message(
+        chat_id=chat_id,
+        author_id=None,  # machine-generated
+        role=role,
+        content=content,
+    )
+    session.add(msg)
+    await session.commit()
 
     await session.refresh(msg)
 

@@ -132,39 +132,40 @@ async def send_message(
 
     role = _role_for_user(current_user.role)
 
-    async with session.begin():
-        message = Message(
-            chat_id=chat_id,
-            author_id=current_user.id,
-            role=role,
-            content=content,
-        )
-        session.add(message)
-        await session.flush()  # populate message.id before creating attachment
+    message = Message(
+        chat_id=chat_id,
+        author_id=current_user.id,
+        role=role,
+        content=content,
+    )
+    session.add(message)
+    await session.flush()  # populate message.id before creating attachment
 
-        attachment: Attachment | None = None
-        if file and file.filename:
-            raw = await file.read()
-            markdown_content = ""
-            try:
-                result_md = _md.convert_stream(io.BytesIO(raw), file_extension="")
-                markdown_content = result_md.text_content or ""
-            except Exception as exc:
-                logger.warning(
-                    "Could not extract text from file",
-                    filename=file.filename,
-                    error=str(exc),
-                )
-
-            attachment = Attachment(
-                chat_id=chat_id,
-                message_id=message.id,
-                uploaded_by_id=current_user.id,
+    attachment: Attachment | None = None
+    if file and file.filename:
+        raw = await file.read()
+        markdown_content = ""
+        try:
+            result_md = _md.convert_stream(io.BytesIO(raw), file_extension="")
+            markdown_content = result_md.text_content or ""
+        except Exception as exc:
+            logger.warning(
+                "Could not extract text from file",
                 filename=file.filename,
-                content_type=file.content_type or "application/octet-stream",
-                markdown_content=markdown_content,
+                error=str(exc),
             )
-            session.add(attachment)
+
+        attachment = Attachment(
+            chat_id=chat_id,
+            message_id=message.id,
+            uploaded_by_id=current_user.id,
+            filename=file.filename,
+            content_type=file.content_type or "application/octet-stream",
+            markdown_content=markdown_content,
+        )
+        session.add(attachment)
+
+    await session.commit()
 
     # Reload with attachments for the response.
     await session.refresh(message)
