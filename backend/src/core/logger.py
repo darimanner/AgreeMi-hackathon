@@ -13,23 +13,14 @@ from structlog.types import Processor
 
 
 class InterceptHandler(logging.Handler):
-    """
-    Default handler from standard logging to intercept and redirect to structlog.
-    """
+    """Route stdlib logging records into structlog."""
 
     def emit(self, record: logging.LogRecord) -> None:
-        # Get corresponding structlog logger
-        try:
-            level = structlog.get_logger(record.name)._proxy_to.log_level
-        except AttributeError:
-            level = logging.INFO
-
-        if record.levelno >= level:
-            structlog.get_logger(record.name).log(
-                record.levelno,
-                record.getMessage(),
-                **record.__dict__.get("extra", {}),
-            )
+        # Map stdlib level name → structlog bound method (info, warning, error, …).
+        level_name = record.levelname.lower()
+        sl = structlog.get_logger(record.name)
+        log_fn = getattr(sl, level_name, sl.info)
+        log_fn(record.getMessage(), **record.__dict__.get("extra", {}))
 
 
 def setup_logging(debug: bool = False) -> None:
@@ -76,7 +67,7 @@ def setup_logging(debug: bool = False) -> None:
     # Hijack standard logging
     logging.basicConfig(handlers=[InterceptHandler()], level=0, force=True)
 
-    # Disable default handlers for common web servers
+    # Remove default handlers so logs flow only through InterceptHandler → structlog.
     for logger_name in (
         "uvicorn",
         "uvicorn.error",
@@ -84,6 +75,10 @@ def setup_logging(debug: bool = False) -> None:
         "hypercorn",
         "hypercorn.error",
         "hypercorn.access",
+        "alembic",
+        "alembic.runtime",
+        "alembic.runtime.migration",
+        "sqlalchemy.engine",
     ):
         logging_logger = logging.getLogger(logger_name)
         logging_logger.handlers = []

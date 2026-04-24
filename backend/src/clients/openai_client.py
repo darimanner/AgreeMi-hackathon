@@ -1,6 +1,7 @@
 import json
 
-from openai import AsyncOpenAI
+from fastapi import HTTPException, status
+from openai import APIConnectionError, APIStatusError, APITimeoutError, AsyncOpenAI
 
 from config import settings
 from core.logger import logger
@@ -44,6 +45,68 @@ Be factual, neutral, and developer-friendly.
 
 
 # ---------------------------------------------------------------------------
+# Error handling
+# ---------------------------------------------------------------------------
+
+
+def _raise_for_ai_error(exc: Exception) -> None:
+    """Map OpenAI / OpenRouter SDK errors to FastAPI HTTPExceptions."""
+    if isinstance(exc, APIStatusError):
+        code = exc.status_code
+        if code == 401:
+            logger.error(
+                "OpenRouter authentication failed — check AI_API_KEY", status=code
+            )
+            raise HTTPException(
+                status.HTTP_502_BAD_GATEWAY,
+                detail="AI service authentication error (invalid API key)",
+            )
+        if code == 429:
+            logger.warning("OpenRouter rate limit hit")
+            raise HTTPException(
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="AI service rate limit exceeded — retry later",
+            )
+        if code == 422:
+            logger.error("OpenRouter rejected the request", status=code, body=str(exc))
+            raise HTTPException(
+                status.HTTP_502_BAD_GATEWAY,
+                detail="AI service rejected the request (invalid input)",
+            )
+        if code >= 500:
+            logger.error("OpenRouter server error", status=code)
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="AI service temporarily unavailable",
+            )
+        logger.error("OpenRouter API error", status=code, error=str(exc))
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            detail=f"AI service error (status {code})",
+        )
+
+    if isinstance(exc, APITimeoutError):
+        logger.error("OpenRouter request timed out")
+        raise HTTPException(
+            status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="AI service timed out",
+        )
+
+    if isinstance(exc, APIConnectionError):
+        logger.error("OpenRouter unreachable", error=str(exc))
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI service unreachable",
+        )
+
+    logger.error("Unexpected AI client error", error=str(exc))
+    raise HTTPException(
+        status.HTTP_502_BAD_GATEWAY,
+        detail="AI request failed",
+    )
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
@@ -67,15 +130,18 @@ async def analyze_document(text: str) -> AnalysisResult:
         chars=len(text),
     )
 
-    response = await _client.chat.completions.create(
-        model=settings.ai.model,
-        response_format={"type": "json_object"},
-        messages=[
-            {"role": "system", "content": _ANALYZE_SYSTEM_PROMPT},
-            {"role": "user", "content": text[:12_000]},  # guard against token overflow
-        ],
-        temperature=0.2,
-    )
+    try:
+        response = await _client.chat.completions.create(
+            model=settings.ai.model,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": _ANALYZE_SYSTEM_PROMPT},
+                {"role": "user", "content": text[:12_000]},
+            ],
+            temperature=0.2,
+        )
+    except Exception as exc:
+        _raise_for_ai_error(exc)
 
     raw = response.choices[0].message.content or "{}"
     logger.debug(
@@ -108,14 +174,17 @@ async def summarize_messages(messages: list[str]) -> str:
         "Summarizing messages for /update", count=len(messages), model=settings.ai.model
     )
 
-    response = await _client.chat.completions.create(
-        model=settings.ai.model,
-        messages=[
-            {"role": "system", "content": _UPDATE_SYSTEM_PROMPT},
-            {"role": "user", "content": transcript},
-        ],
-        temperature=0.3,
-        max_tokens=300,
-    )
+    try:
+        response = await _client.chat.completions.create(
+            model=settings.ai.model,
+            messages=[
+                {"role": "system", "content": _UPDATE_SYSTEM_PROMPT},
+                {"role": "user", "content": transcript},
+            ],
+            temperature=0.3,
+            max_tokens=300,
+        )
+    except Exception as exc:
+        _raise_for_ai_error(exc)
 
     return response.choices[0].message.content or "No summary available."
