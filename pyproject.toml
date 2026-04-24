@@ -8,6 +8,7 @@ dependencies = [
     "asyncpg>=0.31.0",
     "fastapi[standard]>=0.136.1",
     "httpx[http2]>=0.28.1",
+    "hypercorn>=0.18.0",
     "markitdown[pdf]>=0.1.5",
     "openai>=2.32.0",
     "passlib[bcrypt]>=1.7.4",
