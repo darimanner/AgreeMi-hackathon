@@ -1,4 +1,7 @@
-FROM python:3.13-alpine
+FROM python:3.12-slim
+
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # Create and change to the app directory.
 WORKDIR /app
@@ -13,7 +16,7 @@ ENV PYTHONUNBUFFERED=1 \
 COPY . .
 
 # Install project dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN uv pip install --system --no-cache -r requirements.txt
 
 # Run the web service on container startup.
 CMD ["hypercorn", "src.main:app", "--bind", "::8000"]
