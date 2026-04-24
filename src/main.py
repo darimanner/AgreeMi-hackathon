@@ -72,3 +72,11 @@ app.include_router(commands_router, prefix="/chats", tags=["Commands"])
 # WebSocket
 # ------------------------------------------------------------------
 app.include_router(ws_router, prefix="/ws", tags=["WebSocket"])
+
+
+# ------------------------------------------------------------------
+# Health check (used by Railway to verify the container is alive)
+# ------------------------------------------------------------------
+@app.get("/health", tags=["Health"], summary="Health check")
+async def health() -> dict[str, str]:
+    return {"status": "ok"}
