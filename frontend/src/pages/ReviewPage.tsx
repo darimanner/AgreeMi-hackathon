@@ -22,35 +22,43 @@ export const ReviewPage: React.FC = () => {
             <span>ReqLens</span>
           </div>
           <div className="review-nav-divider" />
-          <span className="review-nav-title">Анализ ТЗ</span>
+          <span className="review-nav-title">Spec Review</span>
           {document && (
             <div className="review-nav-pills">
-              <span className="badge badge-error">{document.stats.criticalIssues} критических</span>
-              <span className="badge badge-warning">{document.stats.warnings} предупреждений</span>
+              <span className="badge badge-error">{document.stats.criticalIssues} critical</span>
+              <span className="badge badge-warning">{document.stats.warnings} warnings</span>
             </div>
           )}
         </div>
 
         <div className="review-nav-right">
-          <button className="btn btn-ghost" style={{ padding: '6px 12px', fontSize: 12 }} onClick={() => setAppState('upload')}>
+          <button
+            className="btn btn-ghost"
+            style={{ padding: '6px 12px', fontSize: 12 }}
+            onClick={() => setAppState('upload')}
+          >
             <ArrowLeft size={13} />
-            Новый документ
+            New document
           </button>
-          <button className="btn btn-primary" style={{ padding: '8px 18px', fontSize: 13 }} onClick={generateRoadmap}>
+          <button
+            className="btn btn-primary"
+            style={{ padding: '8px 18px', fontSize: 13 }}
+            onClick={generateRoadmap}
+          >
             <Zap size={14} />
-            Сгенерировать Roadmap
+            Generate Roadmap
           </button>
         </div>
       </div>
 
-      {/* Main split */}
+      {/* Main split view */}
       <div className="review-split">
-        {/* Left pane: document */}
+        {/* Left pane: annotated document */}
         <div className="review-left">
           <DocumentViewer />
         </div>
 
-        {/* Right pane: chat */}
+        {/* Right pane: AI chat */}
         <div className="review-right">
           <ChatPanel />
         </div>

@@ -21,7 +21,6 @@ const TaskCard: React.FC<{ task: KanbanTask; onDrop: (col: KanbanTask['column'])
   const pc = PRIORITY_COLORS[task.priority];
   return (
     <div className="kanban-card glass animate-kanban">
-      {/* Priority indicator */}
       <div className="kanban-card-priority">
         <span className="kanban-priority-dot" style={{ background: pc.dot }} />
         <span className={`badge ${pc.badge}`} style={{ fontSize: 10 }}>
@@ -83,16 +82,20 @@ export const KanbanBoard: React.FC = () => {
         <div className="kanban-topbar-right">
           <span className="badge badge-lime">
             <Zap size={10} />
-            AI-сгенерировано
+            AI-generated
           </span>
-          <span className="badge badge-neutral">{kanbanTasks.length} задач</span>
-          <button className="btn btn-ghost" style={{ padding: '8px 14px', fontSize: 13 }} onClick={() => setAppState('review')}>
+          <span className="badge badge-neutral">{kanbanTasks.length} tasks</span>
+          <button
+            className="btn btn-ghost"
+            style={{ padding: '8px 14px', fontSize: 13 }}
+            onClick={() => setAppState('review')}
+          >
             <ArrowLeft size={14} />
-            Вернуться к анализу
+            Back to analysis
           </button>
           <button className="btn btn-primary" style={{ padding: '8px 16px', fontSize: 13 }}>
             <Plus size={14} />
-            Экспорт в Jira
+            Export to Jira
           </button>
         </div>
       </div>
@@ -149,7 +152,7 @@ export const KanbanBoard: React.FC = () => {
 
                 {tasks.length === 0 && (
                   <div className="kanban-empty">
-                    <span>Перетащите сюда</span>
+                    <span>Drop tasks here</span>
                   </div>
                 )}
               </div>
@@ -157,7 +160,7 @@ export const KanbanBoard: React.FC = () => {
               {/* Add task */}
               <button className="kanban-add-btn">
                 <Plus size={14} />
-                Добавить задачу
+                Add task
               </button>
             </div>
           );

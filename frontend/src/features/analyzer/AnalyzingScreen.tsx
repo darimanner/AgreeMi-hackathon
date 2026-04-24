@@ -4,12 +4,12 @@ import { useAppStore } from '../../app/store';
 import './analyzing.css';
 
 const STEPS = [
-  { id: 1, label: 'Парсинг документа',       detail: 'Извлечение текста и структуры' },
-  { id: 2, label: 'Семантический анализ',     detail: 'NLP-разбор требований' },
-  { id: 3, label: 'Агент: Completeness',      detail: 'Проверка полноты ТЗ' },
-  { id: 4, label: 'Агент: Consistency',       detail: 'Поиск противоречий' },
-  { id: 5, label: 'Агент: Measurability',     detail: 'Верификация метрик' },
-  { id: 6, label: 'Генерация отчёта',         detail: 'Формирование аннотаций' },
+  { id: 1, label: 'Document parsing',      detail: 'Extracting text and structure' },
+  { id: 2, label: 'Semantic analysis',     detail: 'NLP breakdown of requirements' },
+  { id: 3, label: 'Agent: Completeness',   detail: 'Checking spec coverage' },
+  { id: 4, label: 'Agent: Consistency',    detail: 'Detecting contradictions' },
+  { id: 5, label: 'Agent: Measurability',  detail: 'Verifying metrics & KPIs' },
+  { id: 6, label: 'Report generation',     detail: 'Building inline annotations' },
 ];
 
 export const AnalyzingScreen: React.FC = () => {
@@ -25,8 +25,8 @@ export const AnalyzingScreen: React.FC = () => {
           <Loader2 size={28} className="analyzing-spinner" />
         </div>
 
-        <h2 className="analyzing-title">Анализируем документ</h2>
-        <p className="analyzing-subtitle">ИИ-агенты проверяют требования...</p>
+        <h2 className="analyzing-title">Analysing document</h2>
+        <p className="analyzing-subtitle">AI agents are reviewing your requirements…</p>
 
         {/* Progress bar */}
         <div className="analyzing-progress-track">

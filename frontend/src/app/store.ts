@@ -2,105 +2,105 @@ import { create } from 'zustand';
 import type { AppState, ParsedDocument, ChatMessage, KanbanTask, Issue } from '../shared/types';
 
 // ── Mock data ──────────────────────────────────────────────
-const MOCK_TEXT = `1. Система должна работать быстро и надежно.
+const MOCK_TEXT = `1. The system must work fast and reliably.
 
-2. Пользователь должен иметь возможность загружать файлы.
+2. Users must be able to upload files.
 
-3. Кнопка должна быть синей или зеленой — как будет лучше.
+3. The button should be blue or green — whichever looks better.
 
-4. Система должна обрабатывать все возможные ошибки.
+4. The system must handle all possible errors.
 
-5. Авторизация должна быть максимально безопасной.
+5. Authentication must be as secure as possible.
 
-6. Интерфейс должен быть удобным и современным.
+6. The interface must be intuitive and modern.
 
-7. Данные должны храниться в базе данных и обновляться в реальном времени.
+7. Data must be stored in a database and updated in real time.
 
-8. Нотификации должны отправляться мгновенно при любых событиях.
+8. Notifications must be sent instantly for any events.
 
-9. Система должна поддерживать неограниченное количество пользователей.
+9. The system must support an unlimited number of users.
 
-10. Отчёты должны формироваться быстро.`;
+10. Reports must be generated quickly.`;
 
 const MOCK_ISSUES = [
   {
     id: 'i1',
     startIndex: 25,
-    endIndex: 43,
-    text: 'быстро и надежно',
+    endIndex: 46,
+    text: 'fast and reliably',
     level: 'critical' as const,
-    title: 'Неизмеримое требование',
-    description: 'Слова «быстро» и «надёжно» не имеют конкретных метрик. Невозможно верифицировать выполнение требования.',
-    suggestion: 'Укажите конкретные значения: «время ответа ≤ 200мс при нагрузке 1000 RPS; uptime ≥ 99.9%».',
+    title: 'Non-measurable requirement',
+    description: 'The words "fast" and "reliably" have no concrete metrics. There is no way to verify this requirement is met.',
+    suggestion: 'Specify exact values: "response time ≤ 200 ms at 1,000 RPS; uptime ≥ 99.9%".',
   },
   {
     id: 'i2',
-    startIndex: 152,
-    endIndex: 183,
-    text: 'синей или зеленой — как будет лучше',
+    startIndex: 140,
+    endIndex: 170,
+    text: 'blue or green — whichever looks better',
     level: 'critical' as const,
     title: 'Ambiguous requirement',
-    description: 'Требование содержит неоднозначность: решение откладывается на этап реализации. Это приведёт к разногласиям между дизайнером и заказчиком.',
-    suggestion: 'Зафиксируйте конкретный цвет в токенах дизайн-системы: «кнопка использует primary-500 из brand-palette».',
+    description: 'The requirement defers the decision to implementation time, causing disagreements between designer and stakeholder.',
+    suggestion: 'Pin the exact colour in design tokens: "button uses primary-500 from the brand palette".',
   },
   {
     id: 'i3',
-    startIndex: 204,
-    endIndex: 235,
-    text: 'обрабатывать все возможные ошибки',
+    startIndex: 200,
+    endIndex: 221,
+    text: 'all possible errors',
     level: 'warning' as const,
-    title: 'Нереалистичный охват',
-    description: '«Все возможные ошибки» — scope creep. Невозможно покрыть все кейсы без конкретного перечня.',
-    suggestion: 'Перечислите конкретные классы ошибок: сетевые тайм-ауты, 4xx/5xx HTTP, невалидный ввод.',
+    title: 'Unrealistic scope',
+    description: '"All possible errors" is scope creep. It is impossible to cover every case without an explicit enumeration.',
+    suggestion: 'List concrete error classes: network timeouts, 4xx/5xx HTTP codes, invalid input.',
   },
   {
     id: 'i4',
-    startIndex: 259,
-    endIndex: 283,
-    text: 'максимально безопасной',
+    startIndex: 251,
+    endIndex: 270,
+    text: 'as secure as possible',
     level: 'warning' as const,
-    title: 'Неверифицируемое требование',
-    description: '«Максимально безопасной» — субъективная оценка. Отсутствует стандарт соответствия.',
-    suggestion: 'Укажите стандарт: «соответствие OWASP ASVS Level 2, MFA обязателен, bcrypt с cost=12».',
+    title: 'Non-verifiable requirement',
+    description: '"As secure as possible" is a subjective assessment. No compliance standard is referenced.',
+    suggestion: 'Cite a standard: "OWASP ASVS Level 2 compliant, MFA required, bcrypt cost=12".',
   },
   {
     id: 'i5',
-    startIndex: 425,
-    endIndex: 463,
-    text: 'неограниченное количество пользователей',
+    startIndex: 389,
+    endIndex: 413,
+    text: 'an unlimited number of users',
     level: 'critical' as const,
     title: 'Infinite scaling fallacy',
-    description: 'Неограниченный масштаб технически и финансово невозможен. Требование вводит в заблуждение команду.',
-    suggestion: 'Определите реальную нагрузку: «система должна поддерживать до 50 000 активных пользователей одновременно с горизонтальным масштабированием».',
+    description: 'Unlimited scale is technically and financially impossible. The requirement misleads the engineering team.',
+    suggestion: 'Define realistic load: "support up to 50,000 concurrent users with horizontal scaling".',
   },
   {
     id: 'i6',
-    startIndex: 486,
-    endIndex: 492,
-    text: 'быстро',
+    startIndex: 452,
+    endIndex: 459,
+    text: 'quickly',
     level: 'warning' as const,
-    title: 'Нет метрики производительности',
-    description: 'Повторяющийся паттерн: «быстро» без SLA.',
-    suggestion: 'Время генерации отчёта ≤ 3 секунды для датасетов до 100 000 строк.',
+    title: 'Missing performance metric',
+    description: 'Recurring pattern: "quickly" without any SLA.',
+    suggestion: 'Report generation time ≤ 3 seconds for datasets up to 100,000 rows.',
   },
 ];
 
 const MOCK_KANBAN: KanbanTask[] = [
-  { id: 'k1', title: 'Определить SLA для API endpoints', description: 'Зафиксировать p95/p99 latency и uptime SLO в ADR', priority: 'high', estimate: '2д', tags: ['backend', 'architecture'], column: 'todo' },
-  { id: 'k2', title: 'Разработать UI kit кнопок', description: 'Создать дизайн-токены и компонент Button в Storybook', priority: 'medium', estimate: '3д', tags: ['frontend', 'design'], column: 'todo' },
-  { id: 'k3', title: 'Спецификация обработки ошибок', description: 'Составить матрицу ошибок: HTTP коды, пользовательские сообщения, алерты', priority: 'high', estimate: '1д', tags: ['backend', 'docs'], column: 'backlog' },
-  { id: 'k4', title: 'Security audit checklist', description: 'OWASP ASVS L2 review, pen-test scope, MFA flow diagram', priority: 'high', estimate: '5д', tags: ['security', 'backend'], column: 'backlog' },
-  { id: 'k5', title: 'Load testing план', description: 'k6 сценарии для 50k concurrent users, baseline метрики', priority: 'medium', estimate: '3д', tags: ['devops', 'testing'], column: 'backlog' },
-  { id: 'k6', title: 'Настройка файлового хранилища', description: 'S3-compatible storage, политики retention, CDN конфиг', priority: 'medium', estimate: '2д', tags: ['backend', 'infra'], column: 'in-progress' },
-  { id: 'k7', title: 'Уточнение требований с заказчиком', description: 'Воркшоп по неоднозначным пунктам ТЗ (п. 3, 5, 9)', priority: 'high', estimate: '1д', tags: ['management'], column: 'done' },
-  { id: 'k8', title: 'Wireframes авторизации', description: 'Login/Register/MFA screens в Figma', priority: 'low', estimate: '2д', tags: ['design', 'frontend'], column: 'in-progress' },
+  { id: 'k1', title: 'Define SLA for API endpoints', description: 'Document p95/p99 latency and uptime SLO in an ADR', priority: 'high', estimate: '2d', tags: ['backend', 'architecture'], column: 'todo' },
+  { id: 'k2', title: 'Build button UI kit', description: 'Create design tokens and a Button component in Storybook', priority: 'medium', estimate: '3d', tags: ['frontend', 'design'], column: 'todo' },
+  { id: 'k3', title: 'Error handling specification', description: 'Write an error matrix: HTTP codes, user-facing messages, alerts', priority: 'high', estimate: '1d', tags: ['backend', 'docs'], column: 'backlog' },
+  { id: 'k4', title: 'Security audit checklist', description: 'OWASP ASVS L2 review, pen-test scope, MFA flow diagram', priority: 'high', estimate: '5d', tags: ['security', 'backend'], column: 'backlog' },
+  { id: 'k5', title: 'Load testing plan', description: 'k6 scenarios for 50k concurrent users, baseline metrics', priority: 'medium', estimate: '3d', tags: ['devops', 'testing'], column: 'backlog' },
+  { id: 'k6', title: 'File storage setup', description: 'S3-compatible storage, retention policies, CDN config', priority: 'medium', estimate: '2d', tags: ['backend', 'infra'], column: 'in-progress' },
+  { id: 'k7', title: 'Requirements workshop with client', description: 'Workshop to clarify ambiguous items in the spec (req. 3, 5, 9)', priority: 'high', estimate: '1d', tags: ['management'], column: 'done' },
+  { id: 'k8', title: 'Auth wireframes', description: 'Login / Register / MFA screens in Figma', priority: 'low', estimate: '2d', tags: ['design', 'frontend'], column: 'in-progress' },
 ];
 
 const MOCK_CHAT: ChatMessage[] = [
   {
     id: 'c0',
     role: 'assistant',
-    content: '👋 Документ загружен и проанализирован. Найдено **6 проблем** в требованиях: 3 критических, 3 предупреждения.\n\nКликните на любое выделенное место в тексте слева — я объясню проблему подробно. Или задайте вопрос напрямую.',
+    content: '👋 Document loaded and analysed. Found **6 issues** in the requirements: 3 critical, 3 warnings.\n\nClick any highlighted passage in the document on the left — I will explain the problem in detail. Or ask me anything directly.',
     timestamp: new Date(Date.now() - 60000),
   },
 ];
@@ -168,7 +168,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     const msg: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: `Объясни проблему: «${issue.text}»`,
+      content: `Explain the issue: "${issue.text}"`,
       timestamp: new Date(),
       relatedIssueId: issue.id,
     };
@@ -179,7 +179,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const response: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: `**${issue.title}**\n\n${issue.description}\n\n💡 **Рекомендация:**\n${issue.suggestion}`,
+        content: `**${issue.title}**\n\n${issue.description}\n\n💡 **Recommendation:**\n${issue.suggestion}`,
         timestamp: new Date(),
         relatedIssueId: issue.id,
         isStreaming: false,
@@ -200,9 +200,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
     await new Promise(r => setTimeout(r, 1200));
 
     const responses = [
-      'Это хороший вопрос. На основе анализа документа могу сказать: требование нуждается в конкретизации через метрики и критерии приёмки (acceptance criteria).',
-      'Рекомендую применить шаблон **SMART**: Specific, Measurable, Achievable, Relevant, Time-bound. Это устранит большинство найденных проблем.',
-      'Типичная ошибка в ТЗ — отсутствие **Definition of Done**. Убедитесь, что каждое требование имеет верифицируемый критерий.',
+      'Good question. Based on the document analysis: this requirement needs to be refined with concrete metrics and acceptance criteria.',
+      'I recommend applying the **SMART** template: Specific, Measurable, Achievable, Relevant, Time-bound. This will eliminate most of the identified issues.',
+      'A common mistake in specs is the absence of a **Definition of Done**. Make sure every requirement has a verifiable acceptance criterion.',
     ];
 
     const aiMsg: ChatMessage = {

@@ -49,7 +49,7 @@ export const ChatPanel: React.FC = () => {
             <div className="chat-header-name">ReqLens AI</div>
             <div className="chat-header-status">
               <span className="chat-status-dot" />
-              Онлайн · GPT-4o + анализатор ТЗ
+              Online · GPT-4o + requirements analyser
             </div>
           </div>
         </div>
@@ -64,7 +64,7 @@ export const ChatPanel: React.FC = () => {
         <div className="chat-issue-pill">
           <span className={`issue-pill-dot ${selectedIssue.level}`} />
           <span className="issue-pill-text">
-            Анализ: <strong>«{selectedIssue.text.slice(0, 40)}{selectedIssue.text.length > 40 ? '…' : ''}»</strong>
+            Analysing: <strong>"{selectedIssue.text.slice(0, 40)}{selectedIssue.text.length > 40 ? '…' : ''}"</strong>
           </span>
         </div>
       )}
@@ -82,7 +82,7 @@ export const ChatPanel: React.FC = () => {
                 dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
               />
               <div className="chat-bubble-time">
-                {msg.timestamp.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })}
+                {msg.timestamp.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' })}
               </div>
             </div>
           </div>
@@ -105,9 +105,13 @@ export const ChatPanel: React.FC = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Suggestions */}
+      {/* Quick suggestions */}
       <div className="chat-suggestions">
-        {['Какие риски у этого ТЗ?', 'Как улучшить требование №3?', 'Дай общую оценку'].map(s => (
+        {[
+          'What are the main risks?',
+          'How to fix requirement #3?',
+          'Give me an overall score',
+        ].map(s => (
           <button key={s} className="chat-suggestion" onClick={() => sendMessage(s)}>
             {s}
           </button>
@@ -119,7 +123,7 @@ export const ChatPanel: React.FC = () => {
         <div className="chat-input-wrap">
           <textarea
             className="chat-input"
-            placeholder="Задайте вопрос по ТЗ..."
+            placeholder="Ask anything about the spec…"
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKey}
@@ -137,7 +141,7 @@ export const ChatPanel: React.FC = () => {
         {/* Roadmap button */}
         <button className="btn btn-primary chat-roadmap-btn" onClick={generateRoadmap}>
           <Zap size={16} />
-          Сгенерировать Roadmap
+          Generate Roadmap
         </button>
       </div>
     </div>

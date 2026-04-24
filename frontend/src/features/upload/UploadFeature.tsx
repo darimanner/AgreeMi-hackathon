@@ -23,7 +23,6 @@ export const UploadFeature: React.FC = () => {
     if (file) handleFile(file);
   }, [handleFile]);
 
-  // Demo: skip upload
   const handleDemo = () => {
     const mockFile = new File(['mock'], 'example-spec.pdf', { type: 'application/pdf' });
     handleFile(mockFile);
@@ -43,15 +42,15 @@ export const UploadFeature: React.FC = () => {
         <div className="upload-tagline">
           <div className="upload-badge">
             <span className="upload-badge-dot" />
-            AI-анализ ТЗ
+            AI Requirements Analysis
           </div>
           <h1 className="upload-title">
-            Найдём слабые места<br />
-            <span className="upload-title-accent">в вашем ТЗ за секунды</span>
+            Find weak spots in your<br />
+            <span className="upload-title-accent">spec in seconds</span>
           </h1>
           <p className="upload-subtitle">
-            Загрузите техническое задание — ИИ-агенты проанализируют требования,
-            выделят риски и сгенерируют roadmap проекта
+            Upload a technical specification — AI agents will analyse every requirement,
+            surface risks and generate a full project roadmap.
           </p>
         </div>
       </div>
@@ -76,8 +75,8 @@ export const UploadFeature: React.FC = () => {
             <Upload size={32} />
           </div>
           <div>
-            <p className="upload-dropzone-title">Перетащите файл или нажмите для выбора</p>
-            <p className="upload-dropzone-subtitle">PDF, DOCX, DOC, TXT · до 50 MB</p>
+            <p className="upload-dropzone-title">Drop your file here or click to browse</p>
+            <p className="upload-dropzone-subtitle">PDF, DOCX, DOC, TXT · up to 50 MB</p>
           </div>
         </div>
 
@@ -95,16 +94,16 @@ export const UploadFeature: React.FC = () => {
       <div className="upload-demo">
         <button className="btn btn-ghost" onClick={handleDemo} style={{ margin: '0 auto', display: 'flex' }}>
           <Zap size={16} />
-          Демо — запустить с примером ТЗ
+          Try demo — run with a sample spec
         </button>
       </div>
 
       {/* Features */}
       <div className="upload-features">
         {[
-          { icon: '🔍', title: 'Семантический анализ', desc: 'Агенты проверяют каждое требование на измеримость, однозначность, реализуемость' },
-          { icon: '🎯', title: 'Интерактивная разметка', desc: 'Проблемные места подсвечены прямо в тексте — кликните для объяснения' },
-          { icon: '🗺️', title: 'Генерация Roadmap', desc: 'Автоматически создаёт Kanban-доску с оценками и приоритетами задач' },
+          { icon: '🔍', title: 'Semantic Analysis', desc: 'Agents check every requirement for measurability, unambiguity and feasibility.' },
+          { icon: '🎯', title: 'Inline Annotations', desc: 'Problem areas are highlighted directly in the text — click for an AI explanation.' },
+          { icon: '🗺️', title: 'Roadmap Generation', desc: 'Automatically creates a Kanban board with estimates and task priorities.' },
         ].map(f => (
           <div key={f.title} className="upload-feature-card glass glass-hover">
             <span className="upload-feature-icon">{f.icon}</span>
@@ -114,10 +113,10 @@ export const UploadFeature: React.FC = () => {
         ))}
       </div>
 
-      {/* Warning */}
+      {/* Disclaimer */}
       <div className="upload-disclaimer">
         <AlertTriangle size={14} />
-        <span>Мок-версия · данные не отправляются на сервер · всё работает локально</span>
+        <span>Mock version · no data is sent to a server · everything runs locally</span>
       </div>
     </div>
   );

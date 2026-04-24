@@ -59,9 +59,9 @@ export const DocumentViewer: React.FC = () => {
             <span>example-spec.pdf</span>
           </div>
           <div className="docview-stats">
-            <span className="badge badge-error">{document.stats.criticalIssues} критических</span>
-            <span className="badge badge-warning">{document.stats.warnings} предупреждений</span>
-            <span className="badge badge-lime">{document.stats.totalRequirements} требований</span>
+            <span className="badge badge-error">{document.stats.criticalIssues} critical</span>
+            <span className="badge badge-warning">{document.stats.warnings} warnings</span>
+            <span className="badge badge-lime">{document.stats.totalRequirements} requirements</span>
           </div>
         </div>
         <div className="docview-score-wrap">
@@ -80,9 +80,9 @@ export const DocumentViewer: React.FC = () => {
             <span className="docview-score-val">{document.score}</span>
           </div>
           <div className="docview-score-label">
-            <span>Качество</span>
+            <span>Quality</span>
             <span className="docview-score-grade">
-              {document.score > 60 ? 'Хорошо' : document.score > 30 ? 'Средне' : 'Низкое'}
+              {document.score > 60 ? 'Good' : document.score > 30 ? 'Fair' : 'Poor'}
             </span>
           </div>
         </div>
@@ -92,13 +92,13 @@ export const DocumentViewer: React.FC = () => {
       <div className="docview-legend">
         <div className="legend-item">
           <span className="legend-dot legend-dot--critical" />
-          <span>Критическая ошибка</span>
+          <span>Critical issue</span>
         </div>
         <div className="legend-item">
           <span className="legend-dot legend-dot--warning" />
-          <span>Предупреждение</span>
+          <span>Warning</span>
         </div>
-        <span className="text-muted" style={{ fontSize: 12 }}>Кликните на выделенный фрагмент</span>
+        <span className="text-muted" style={{ fontSize: 12 }}>Click a highlighted passage</span>
       </div>
 
       {/* Document content */}
@@ -127,7 +127,7 @@ export const DocumentViewer: React.FC = () => {
                     {issue.level === 'critical' ? '⚠ Critical' : issue.level === 'warning' ? '⚡ Warning' : 'ℹ Info'}
                   </span>
                   <span className="docview-mark-tooltip-title">{issue.title}</span>
-                  <span className="docview-mark-tooltip-hint">Кликните для подробного анализа →</span>
+                  <span className="docview-mark-tooltip-hint">Click for detailed analysis →</span>
                 </span>
               </span>
             );
