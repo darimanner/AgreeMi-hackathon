@@ -1,44 +1,77 @@
-import type { User } from '../../shared/types';
+import { loginRequest, registerRequest } from '../../shared/api';
+import { clearAccessToken, getAccessToken, setAccessToken } from '../../shared/api';
+import { decodeUserFromToken } from '../../shared/api';
+import { getErrorMessage } from '../../shared/api';
 import type { AppStoreSlice, AuthSlice } from './types';
 
-export const createAuthSlice: AppStoreSlice<AuthSlice> = (set) => ({
+export const createAuthSlice: AppStoreSlice<AuthSlice> = (set, get) => ({
   currentUser: null,
   isAuthenticated: false,
+  accessToken: null,
 
-  login: async (email, password) => {
-    await new Promise(r => setTimeout(r, 800));
-    // Mock auth: accept any known email or allow demo login.
-    if (password.length < 3) {
-      return { success: false, error: 'Password too short' };
+  hydrateAuth: () => {
+    const token = getAccessToken();
+    if (!token) {
+      set({
+        currentUser: null,
+        isAuthenticated: false,
+        accessToken: null,
+        chatRooms: [],
+        activeChatId: null,
+      });
+      return;
     }
+    const user = decodeUserFromToken(token);
+    if (!user) return;
 
-    const isClient = email.includes('client') || !email.includes('dev');
-    const user: User = {
-      id: isClient ? 'client-1' : 'dev-1',
-      name: isClient ? 'Sarah Client' : 'Alex Dev',
-      email,
-      role: isClient ? 'client' : 'developer',
-    };
-
-    set({ currentUser: user, isAuthenticated: true });
-    return { success: true };
+    set({
+      currentUser: user,
+      isAuthenticated: true,
+      accessToken: token,
+    });
+    void get().loadChats();
   },
 
-  register: async (name, email, _password, role) => {
-    await new Promise(r => setTimeout(r, 1000));
-    set({
-      currentUser: {
-        id: `user-${Date.now()}`,
-        name,
-        email,
-        role,
-      },
-      isAuthenticated: true,
-    });
-    return { success: true };
+  login: async (email, password) => {
+    try {
+      const response = await loginRequest({ email, password });
+      const user = decodeUserFromToken(response.access_token);
+      if (!user) {
+        return { success: false, error: 'Could not read user session from token' };
+      }
+
+      setAccessToken(response.access_token);
+      set({
+        currentUser: user,
+        isAuthenticated: true,
+        accessToken: response.access_token,
+      });
+      void get().loadChats();
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: getErrorMessage(error) };
+    }
+  },
+
+  register: async (name, email, password, role) => {
+    try {
+      await registerRequest({ name, email, password, role });
+      const loginResult = await get().login(email, password);
+      if (!loginResult.success) return loginResult;
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: getErrorMessage(error) };
+    }
   },
 
   logout: () => {
-    set({ currentUser: null, isAuthenticated: false, activeChatId: null });
+    clearAccessToken();
+    set({
+      currentUser: null,
+      isAuthenticated: false,
+      accessToken: null,
+      activeChatId: null,
+      chatRooms: [],
+    });
   },
 });

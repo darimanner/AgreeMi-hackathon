@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
   ArrowLeft, Zap, Send, Paperclip, Bot, X,
   ChevronRight, ChevronLeft, Loader2,
@@ -7,17 +9,12 @@ import {
   UserPlus, Copy, Check, Lightbulb
 } from 'lucide-react';
 import { useAppStore } from '../app/store';
+import { closeChatSocket, connectChatSocket } from '../shared/api';
+import { getErrorMessage } from '../shared/api';
 import type { Message, Attachment } from '../shared/types';
 import './chat.css';
 
 /* ── Helpers ────────────────────────────────────────────────────────────────── */
-function renderMarkdown(text: string): string {
-  return text
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/\n/g, '<br/>');
-}
-
 function formatTime(d: Date) {
   return new Date(d).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' });
 }
@@ -132,7 +129,13 @@ export const ChatPage: React.FC = () => {
 
   const currentUser  = useAppStore(s => s.currentUser);
   const chatRooms    = useAppStore(s => s.chatRooms);
+  const isAuthenticated = useAppStore(s => s.isAuthenticated);
+  const accessToken  = useAppStore(s => s.accessToken);
   const isAiStreaming = useAppStore(s => s.isAiStreaming);
+  const streamingChatId = useAppStore(s => s.streamingChatId);
+  const leaveChat = useAppStore(s => s.leaveChat);
+  const loadMessages = useAppStore(s => s.loadMessages);
+  const receiveMessage = useAppStore(s => s.receiveMessage);
   const sendMessage  = useAppStore(s => s.sendMessage);
   const runCommand   = useAppStore(s => s.runCommand);
 
@@ -143,16 +146,87 @@ export const ChatPage: React.FC = () => {
   const isCommand = useMemo(() => input.startsWith('/'), [input]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const socketRef = useRef<WebSocket | null>(null);
   const [showInvite, setShowInvite] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [sendError, setSendError] = useState('');
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [room?.messages]);
 
+  useEffect(() => {
+    if (isAuthenticated && chatId) {
+      void loadMessages(chatId);
+    }
+
+    return () => {
+      if (chatId) leaveChat(chatId);
+    };
+  }, [isAuthenticated, chatId, leaveChat, loadMessages]);
+
+  useEffect(() => {
+    if (!accessToken || !chatId) return;
+
+    if (socketRef.current) {
+      closeChatSocket(socketRef.current);
+    }
+    const socket = connectChatSocket(chatId, accessToken, {
+      onMessage: (incoming) => {
+        if (socketRef.current !== socket) return;
+        receiveMessage(chatId, {
+          id: incoming.id,
+          chatId: incoming.chat_id,
+          authorId: incoming.author_id ?? incoming.role,
+          role: incoming.role,
+          content: incoming.content,
+          timestamp: new Date(incoming.timestamp ?? incoming.created_at ?? Date.now()),
+          attachments: incoming.attachments.map(a => ({
+            id: a.id,
+            name: a.filename,
+            size: 0,
+            type: a.content_type,
+          })),
+        });
+      },
+      onError: () => {
+        if (import.meta.env.DEV && socketRef.current === socket) {
+          console.warn('[chat-ws] connection error', { chatId, url: socket.url });
+        }
+      },
+      onClose: (event) => {
+        if (import.meta.env.DEV && socketRef.current === socket && event.code !== 1000) {
+          console.warn('[chat-ws] connection closed', {
+            chatId,
+            code: event.code,
+            reason: event.reason || '(empty)',
+            wasClean: event.wasClean,
+          });
+        }
+      },
+    });
+    socketRef.current = socket;
+
+    return () => {
+      if (socketRef.current === socket) {
+        socketRef.current = null;
+      }
+      closeChatSocket(socket);
+    };
+  }, [accessToken, chatId, receiveMessage]);
+
 
   // Redirect if not found
   if (!room) {
+    if (isAuthenticated && chatRooms.length === 0) {
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', flexDirection: 'column', gap: 16 }}>
+          <Loader2 size={24} className="animate-spin text-muted" />
+          <p className="text-muted">Loading chat…</p>
+        </div>
+      );
+    }
+
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', flexDirection: 'column', gap: 16 }}>
         <p className="text-muted">Chat not found</p>
@@ -161,18 +235,32 @@ export const ChatPage: React.FC = () => {
     );
   }
 
+  const isCurrentChatStreaming = isAiStreaming && streamingChatId === chatId;
+
   const handleSend = async () => {
     const text = input.trim();
     if (!text && attachments.length === 0) return;
 
     setInput('');
+    setSendError('');
 
-    if (text.startsWith('/')) {
-      await runCommand(chatId!, text);
-    } else {
-      await sendMessage(chatId!, text, attachments.length > 0 ? attachments : undefined);
+    try {
+      if (text.startsWith('/')) {
+        await runCommand(chatId!, text);
+      } else {
+        await sendMessage(chatId!, text, attachments.length > 0 ? attachments : undefined);
+      }
+
+      attachments.forEach(a => {
+        if (a.url?.startsWith('blob:')) {
+          URL.revokeObjectURL(a.url);
+        }
+      });
+      setAttachments([]);
+    } catch (error) {
+      setInput(text);
+      setSendError(getErrorMessage(error));
     }
-    setAttachments([]);
   };
 
   const handleKey = (e: React.KeyboardEvent) => {
@@ -190,12 +278,17 @@ export const ChatPage: React.FC = () => {
       size: f.size,
       type: f.type,
       url: URL.createObjectURL(f),
+      file: f,
     }));
     setAttachments(prev => [...prev, ...newAttachments]);
     e.target.value = '';
   };
 
   const removeAttachment = (id: string) => {
+    const removed = attachments.find(a => a.id === id);
+    if (removed?.url?.startsWith('blob:')) {
+      URL.revokeObjectURL(removed.url);
+    }
     setAttachments(prev => prev.filter(a => a.id !== id));
   };
 
@@ -212,10 +305,11 @@ export const ChatPage: React.FC = () => {
     : [];
 
   // Invite modal state
-  const inviteLink = `${window.location.origin}/join/${chatId}`;
+  const inviteCode = room.inviteCode ?? chatId;
+  const inviteJoinLink = `${window.location.origin}/join/${inviteCode}`;
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(inviteLink).then(() => {
+    navigator.clipboard.writeText(inviteJoinLink).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
@@ -271,7 +365,7 @@ export const ChatPage: React.FC = () => {
             <div className="invite-link-row">
               <input
                 className="invite-link-input"
-                value={inviteLink}
+                value={inviteJoinLink}
                 readOnly
                 onFocus={e => e.target.select()}
               />
@@ -284,7 +378,7 @@ export const ChatPage: React.FC = () => {
               </button>
             </div>
             <p className="text-xs text-muted invite-link-format">
-              Link format: <code>/join/{chatId}</code>
+              Link format: <code>/join/{inviteCode}</code>
             </p>
           </div>
         </div>
@@ -321,19 +415,25 @@ export const ChatPage: React.FC = () => {
                     </div>
                   )}
 
-                  <div
-                    className="msg-content"
-                    dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
-                  />
+                  <div className="msg-content">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                  </div>
 
                   {/* Attachments */}
                   {msg.attachments && msg.attachments.length > 0 && (
                     <div className="msg-attachments">
                       {msg.attachments.map(a => (
-                        <a key={a.id} href={a.url} className="msg-attachment" target="_blank" rel="noreferrer">
-                          <Paperclip size={12} />
-                          <span>{a.name}</span>
-                        </a>
+                        a.url ? (
+                          <a key={a.id} href={a.url} className="msg-attachment" target="_blank" rel="noreferrer">
+                            <Paperclip size={12} />
+                            <span>{a.name}</span>
+                          </a>
+                        ) : (
+                          <div key={a.id} className="msg-attachment">
+                            <Paperclip size={12} />
+                            <span>{a.name}</span>
+                          </div>
+                        )
                       ))}
                     </div>
                   )}
@@ -343,7 +443,7 @@ export const ChatPage: React.FC = () => {
               </div>
             ))}
 
-            {isAiStreaming && (
+            {isCurrentChatStreaming && (
               <div className="msg msg--ai">
                 <div className="avatar avatar-ai msg-avatar">🤖</div>
                 <div className="msg-bubble">
@@ -390,6 +490,10 @@ export const ChatPage: React.FC = () => {
               </div>
             )}
 
+            {sendError && (
+              <div className="chat-send-error">{sendError}</div>
+            )}
+
             <div className="chat-input-row">
               <button
                 className="chat-attach-btn"
@@ -411,11 +515,11 @@ export const ChatPage: React.FC = () => {
               </div>
 
               <button
-                className={`chat-send ${(!input.trim() && attachments.length === 0) || isAiStreaming ? 'disabled' : ''}`}
+                className={`chat-send ${(!input.trim() && attachments.length === 0) || isCurrentChatStreaming ? 'disabled' : ''}`}
                 onClick={handleSend}
-                disabled={(!input.trim() && attachments.length === 0) || isAiStreaming}
+                disabled={(!input.trim() && attachments.length === 0) || isCurrentChatStreaming}
               >
-                {isAiStreaming
+                {isCurrentChatStreaming
                   ? <Loader2 size={17} className="animate-spin" />
                   : isCommand
                   ? <Zap size={17} />

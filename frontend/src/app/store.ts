@@ -24,3 +24,5 @@ export const useAppStore = create<AppStore>()(
     }
   )
 );
+
+useAppStore.getState().hydrateAuth();

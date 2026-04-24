@@ -222,6 +222,16 @@
 }
 .attach-chip button:hover { color: var(--red-400); }
 
+.chat-send-error {
+  background: var(--red-glow);
+  border: 1px solid rgba(255,92,122,0.25);
+  border-radius: var(--radius-sm);
+  color: var(--red-400);
+  font-size: 12px;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+}
+
 /* Input row */
 .chat-input-row {
   display: flex;

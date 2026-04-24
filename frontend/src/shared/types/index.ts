@@ -15,7 +15,8 @@ export interface Attachment {
   name: string;
   size: number;
   type: string; // mime type
-  url: string;  // object URL or remote URL
+  url?: string;  // object URL or remote URL
+  file?: File;
 }
 
 export interface Message {
@@ -32,6 +33,7 @@ export interface Message {
 export interface ChatRoom {
   id: string;
   title: string;
+  inviteCode?: string;
   participants: User[];
   messages: Message[];
   createdAt: Date;

@@ -41,18 +41,18 @@ export const HomePage: React.FC = () => {
     navigate(`/chat/${chatId}`);
   };
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim()) return;
     setCreating(true);
-    const chat = createChat(newTitle.trim());
+    const chat = await createChat(newTitle.trim());
     setCreating(false);
     setShowNew(false);
     setNewTitle('');
     navigate(`/chat/${chat.id}`);
   };
 
-  const handleJoin = (e: React.FormEvent) => {
+  const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
     setJoinError('');
     // Accept full URL or just the path or just chatId
@@ -61,9 +61,9 @@ export const HomePage: React.FC = () => {
     const match = raw.match(/(?:join\/)?([\w-]+)\s*$/);
     const chatId = match?.[1] ?? raw;
     if (!chatId) { setJoinError('Paste a valid invite link'); return; }
-    const res = joinChat(chatId);
+    const res = await joinChat(chatId);
     if (res.success) {
-      navigate(`/chat/${chatId}`);
+      navigate(`/chat/${res.chatId ?? chatId}`);
     } else {
       setJoinError(res.error ?? 'Could not join chat');
     }

@@ -27,14 +27,6 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const handleDemo = async (type: 'client' | 'dev') => {
-    setLoading(true);
-    const em = type === 'client' ? 'sarah@company.com' : 'alex@devteam.io';
-    await login(em, 'demo1234');
-    setLoading(false);
-    navigate('/');
-  };
-
   return (
     <div className="auth-page">
       {/* Background glow */}
@@ -98,19 +90,6 @@ export const LoginPage: React.FC = () => {
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
-
-        <div className="auth-divider"><span>or try demo</span></div>
-
-        <div className="auth-demo-btns">
-          <button className="auth-demo-btn" onClick={() => handleDemo('client')}>
-            <span className="auth-demo-role client">Client</span>
-            Sign in as Client
-          </button>
-          <button className="auth-demo-btn" onClick={() => handleDemo('dev')}>
-            <span className="auth-demo-role dev">Dev</span>
-            Sign in as Developer
-          </button>
-        </div>
 
         <p className="auth-footer">
           Don't have an account?{' '}

@@ -1,123 +1,166 @@
-import type { Message } from '../../shared/types';
-import { MOCK_AI_ANALYSIS, MOCK_CHATS } from './mockData';
+import {
+  createChatRequest,
+  joinChatRequest,
+  listChatsRequest,
+  listMessagesRequest,
+  runCommandRequest,
+  sendMessageRequest,
+} from '../../shared/api';
+import { isAbortError } from '../../shared/api';
+import { normalizeChat, normalizeMessage } from './normalize';
+import { abortRequest, finishRequest, startRequest } from './runtime';
 import type { AppStoreSlice, ChatSlice } from './types';
 
-function getAiCommandResponse(command: string): string {
-  const cmd = command.trim().toLowerCase();
-
-  if (cmd === '/update' || cmd.startsWith('/update')) {
-    return `🔄 **Project Status Update**\n\nBased on the conversation history:\n\n- **Completed:** Initial spec review, performance requirements discussion\n- **In Progress:** Clarifying timeline and SLA definitions\n- **Blocked:** Awaiting client sign-off on updated requirements\n\n📊 **Current spec quality score:** 62/100\n\n_Use \`/update\` anytime to get a fresh summary._`;
-  }
-
-  if (cmd === '/analyze') {
-    return `🤖 **File analyzed!** I've reviewed the attachment and updated the sidebar with my findings.\n\nKey observations:\n- **3 issues found** (1 critical, 1 warning, 1 info)\n- Overall quality score: **62/100**\n\nClick the sidebar panel ↗ for details.`;
-  }
-
-  if (cmd === '/help') {
-    return `📖 **Available commands:**\n\n\`/update\` — Get a project status summary\n\`/analyze\` — Re-analyze attached documents\n\`/help\` — Show this message\n\nYou can also just **attach a file** and I'll analyze it automatically!`;
-  }
-
-  return `❓ Unknown command: \`${command}\`\n\nTry \`/help\` to see available commands.`;
-}
-
 export const createChatSlice: AppStoreSlice<ChatSlice> = (set, get) => ({
-  chatRooms: MOCK_CHATS,
+  chatRooms: [],
   activeChatId: null,
+  streamingChatId: null,
   isAiStreaming: false,
 
   setActiveChat: (chatId) => set({ activeChatId: chatId }),
 
-  createChat: (title) => {
-    const { currentUser, chatRooms } = get();
-    const newChat = {
-      id: `chat-${Date.now()}`,
-      title,
-      participants: currentUser ? [currentUser] : [],
-      messages: [],
-      createdAt: new Date(),
-      lastMessageAt: new Date(),
-    };
-
-    set({ chatRooms: [newChat, ...chatRooms], activeChatId: newChat.id });
-    return newChat;
+  leaveChat: (chatId) => {
+    abortRequest(`messages:${chatId}`);
+    abortRequest(`send:${chatId}`);
+    abortRequest(`command:${chatId}`);
+    if (get().streamingChatId === chatId) {
+      set({ streamingChatId: null, isAiStreaming: false });
+    }
   },
 
-  joinChat: (chatId) => {
+  loadChats: async () => {
+    try {
+      const rooms = await listChatsRequest();
+      const currentRooms = get().chatRooms;
+      set({
+        chatRooms: rooms.map(room => normalizeChat(room, currentRooms.find(existing => existing.id === room.id))),
+      });
+    } catch {
+      // Keep the current in-memory state if the API is temporarily unavailable.
+    }
+  },
+
+  loadMessages: async (chatId) => {
+    const key = `messages:${chatId}`;
+    const signal = startRequest(key);
+
+    try {
+      const messages = await listMessagesRequest(chatId, {}, signal);
+      if (!finishRequest(key, signal)) return;
+
+      set({
+        chatRooms: get().chatRooms.map(room =>
+          room.id === chatId
+            ? {
+                ...room,
+                messages: messages.map(normalizeMessage),
+                lastMessageAt: messages.length > 0
+                  ? new Date(messages[messages.length - 1].timestamp ?? messages[messages.length - 1].created_at)
+                  : room.lastMessageAt,
+              }
+          : room
+        ),
+      });
+    } catch (error) {
+      if (!isAbortError(error)) {
+        finishRequest(key, signal);
+      }
+      // Keep existing room state.
+    }
+  },
+
+  createChat: async (title) => {
+    const room = await createChatRequest(title);
+    const normalized = normalizeChat(room);
+    set({ chatRooms: [normalized, ...get().chatRooms], activeChatId: normalized.id });
+    return normalized;
+  },
+
+  joinChat: async (chatId) => {
     const { currentUser, chatRooms } = get();
     if (!currentUser) return { success: false, error: 'You must be logged in to join a chat' };
 
-    const room = chatRooms.find(r => r.id === chatId);
-    if (!room) return { success: false, error: 'Chat not found. Check the link and try again.' };
-
-    const alreadyIn = room.participants.some(p => p.id === currentUser.id);
-    if (!alreadyIn) {
+    try {
+      const result = await joinChatRequest(chatId);
+      const normalized = normalizeChat(result.chat, chatRooms.find(r => r.id === result.chat.id));
       set({
-        chatRooms: chatRooms.map(r =>
-          r.id === chatId
-            ? { ...r, participants: [...r.participants, currentUser] }
-            : r
-        ),
+        chatRooms: chatRooms.some(r => r.id === normalized.id)
+          ? chatRooms.map(r => (r.id === normalized.id ? normalized : r))
+          : [normalized, ...chatRooms],
+        activeChatId: normalized.id,
       });
+      return { success: true, chatId: normalized.id };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Could not join chat' };
     }
-
-    set({ activeChatId: chatId });
-    return { success: true };
   },
 
   sendMessage: async (chatId, content, attachments) => {
-    const { currentUser, chatRooms } = get();
+    const { currentUser } = get();
     if (!currentUser) return;
 
-    const newMsg: Message = {
-      id: `msg-${Date.now()}`,
-      chatId,
-      authorId: currentUser.id,
-      role: currentUser.role,
-      content,
-      attachments,
-      timestamp: new Date(),
-    };
+    const key = `send:${chatId}`;
+    const signal = startRequest(key);
 
-    set({
-      chatRooms: chatRooms.map(r =>
-        r.id === chatId
-          ? { ...r, messages: [...r.messages, newMsg], lastMessageAt: new Date() }
-          : r
-      ),
-    });
+    const file = attachments?.[0]?.file;
+    try {
+      const message = await sendMessageRequest(chatId, { content, file }, signal);
+      if (!finishRequest(key, signal)) return;
 
-    if (attachments && attachments.length > 0) {
-      await get().runCommand(chatId, '/analyze');
+      const normalized = normalizeMessage(message);
+      get().receiveMessage(chatId, normalized);
+
+      if (attachments && attachments.length > 0) {
+        await get().runCommand(chatId, '/analyze');
+      }
+    } catch (error) {
+      if (!isAbortError(error)) {
+        finishRequest(key, signal);
+        throw error;
+      }
     }
   },
 
   runCommand: async (chatId, command) => {
-    set({ isAiStreaming: true });
-    await new Promise(r => setTimeout(r, 1500));
+    const key = `command:${chatId}`;
+    const signal = startRequest(key);
+    set({ streamingChatId: chatId, isAiStreaming: true });
 
-    const systemMsg: Message = {
-      id: `ai-${Date.now()}`,
-      chatId,
-      authorId: 'ai',
-      role: 'ai',
-      content: getAiCommandResponse(command),
-      timestamp: new Date(),
-    };
+    try {
+      const response = await runCommandRequest(chatId, command, signal);
+      if (!finishRequest(key, signal)) return;
 
+      const normalized = normalizeMessage(response.message);
+      get().receiveMessage(chatId, normalized);
+
+      if (command.trim().toLowerCase().startsWith('/analyze')) {
+        await get().loadChats();
+      }
+    } catch (error) {
+      if (!isAbortError(error)) {
+        finishRequest(key, signal);
+        throw error;
+      }
+    } finally {
+      if (get().streamingChatId === chatId) {
+        set({ streamingChatId: null, isAiStreaming: false });
+      }
+    }
+  },
+
+  receiveMessage: (chatId, message) => {
     set({
-      chatRooms: get().chatRooms.map(r =>
-        r.id === chatId
-          ? {
-              ...r,
-              aiAnalysis: command.trim().toLowerCase().startsWith('/analyze')
-                ? MOCK_AI_ANALYSIS
-                : r.aiAnalysis,
-              messages: [...r.messages, systemMsg],
-              lastMessageAt: new Date(),
-            }
-          : r
+      chatRooms: get().chatRooms.map(room =>
+        room.id === chatId
+          ? room.messages.some(existing => existing.id === message.id)
+            ? { ...room, lastMessageAt: message.timestamp }
+            : {
+                ...room,
+                messages: [...room.messages, message],
+                lastMessageAt: message.timestamp,
+              }
+          : room
       ),
-      isAiStreaming: false,
     });
   },
 });

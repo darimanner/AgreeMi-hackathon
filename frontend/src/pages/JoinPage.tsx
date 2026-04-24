@@ -25,17 +25,17 @@ export const JoinPage: React.FC = () => {
 
     if (!chatId) return;
 
-    queueMicrotask(() => {
-      const res = joinChat(chatId);
+    void (async () => {
+      const res = await joinChat(chatId);
       if (res.success) {
         setStatus('success');
         // Auto-redirect after short delay so user sees confirmation
-        setTimeout(() => navigate(`/chat/${chatId}`, { replace: true }), 1500);
+        setTimeout(() => navigate(`/chat/${res.chatId ?? chatId}`, { replace: true }), 1500);
       } else {
         setStatus('error');
         setErrorMsg(res.error ?? 'Could not join chat.');
       }
-    });
+    })();
   }, [chatId, isAuthenticated]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!chatId) {
