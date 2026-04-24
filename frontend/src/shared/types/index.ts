@@ -1,55 +1,59 @@
-export type IssueLevel = 'critical' | 'warning' | 'info';
-
-export interface Issue {
+// ── Auth ──────────────────────────────────────────────────────────────────────
+export interface User {
   id: string;
-  startIndex: number;
-  endIndex: number;
-  text: string;
-  level: IssueLevel;
+  name: string;
+  email: string;
+  avatar?: string;
+  role: 'client' | 'developer';
+}
+
+// ── Chat ──────────────────────────────────────────────────────────────────────
+export type MessageRole = 'client' | 'developer' | 'ai' | 'system';
+
+export interface Attachment {
+  id: string;
+  name: string;
+  size: number;
+  type: string; // mime type
+  url: string;  // object URL or remote URL
+}
+
+export interface Message {
+  id: string;
+  chatId: string;
+  authorId: string;
+  role: MessageRole;
+  content: string;
+  attachments?: Attachment[];
+  timestamp: Date;
+  isStreaming?: boolean;
+}
+
+export interface ChatRoom {
+  id: string;
+  title: string;
+  participants: User[];
+  messages: Message[];
+  createdAt: Date;
+  lastMessageAt: Date;
+  aiAnalysis?: AiAnalysis;
+}
+
+// ── AI Analysis (sidebar) ─────────────────────────────────────────────────────
+export interface AiIssue {
+  id: string;
+  severity: 'critical' | 'warning' | 'info';
   title: string;
   description: string;
   suggestion: string;
 }
 
-export interface ParsedDocument {
-  rawText: string;
-  sections: Section[];
-  issues: Issue[];
-  score: number; // 0-100
-  stats: {
-    totalRequirements: number;
-    criticalIssues: number;
-    warnings: number;
-    suggestions: number;
-  };
+export interface AiAnalysis {
+  summary: string;
+  score: number;
+  issues: AiIssue[];
+  generatedAt: Date;
 }
 
-export interface Section {
-  id: string;
-  title: string;
-  content: string;
-  issues: Issue[];
-}
-
-export interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-  relatedIssueId?: string;
-  isStreaming?: boolean;
-}
-
-export interface KanbanTask {
-  id: string;
-  title: string;
-  description: string;
-  priority: 'high' | 'medium' | 'low';
-  estimate: string;
-  tags: string[];
-  column: KanbanColumn;
-}
-
-export type KanbanColumn = 'backlog' | 'todo' | 'in-progress' | 'done';
-
-export type AppState = 'upload' | 'analyzing' | 'review' | 'roadmap';
+// ── App state ─────────────────────────────────────────────────────────────────
+export type AppRoute = 'home' | 'login' | 'register' | 'chat';

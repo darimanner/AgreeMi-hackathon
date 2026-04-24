@@ -1,24 +1,26 @@
 import { lazy, Suspense } from 'react';
-import { useAppStore } from './app/store';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import './App.css';
 
-// Each screen is a separate page — clean feature-sliced separation
-const UploadPage   = lazy(() => import('./pages/UploadPage'));
-const AnalyzingPage = lazy(() => import('./pages/AnalyzingPage'));
-const ReviewPage   = lazy(() => import('./pages/ReviewPage').then(m => ({ default: m.ReviewPage })));
-const RoadmapPage  = lazy(() => import('./pages/RoadmapPage'));
+const HomePage    = lazy(() => import('./pages/HomePage').then(m => ({ default: m.HomePage })));
+const LoginPage   = lazy(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })));
+const RegisterPage = lazy(() => import('./pages/RegisterPage').then(m => ({ default: m.RegisterPage })));
+const ChatPage    = lazy(() => import('./pages/ChatPage').then(m => ({ default: m.ChatPage })));
+const JoinPage    = lazy(() => import('./pages/JoinPage').then(m => ({ default: m.JoinPage })));
 
 function App() {
-  const appState = useAppStore(s => s.appState);
-
   return (
     <div id="app-root">
       <Suspense fallback={null}>
-        {appState === 'upload'    && <UploadPage />}
-        {appState === 'analyzing' && <AnalyzingPage />}
-        {appState === 'review'    && <ReviewPage />}
-        {appState === 'roadmap'   && <RoadmapPage />}
-     </Suspense>
+        <Routes>
+          <Route path="/"           element={<HomePage />} />
+          <Route path="/login"      element={<LoginPage />} />
+          <Route path="/register"   element={<RegisterPage />} />
+          <Route path="/chat/:chatId" element={<ChatPage />} />
+          <Route path="/join/:chatId"  element={<JoinPage />} />
+          <Route path="*"           element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
     </div>
   );
 }
