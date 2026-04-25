@@ -183,6 +183,7 @@
 .dash-nav-item.active { background: var(--lime-glow-sm); color: var(--lime-400); }
 
 .dash-logout { margin-top: 8px; justify-content: center; }
+.dash-theme { justify-content: center; margin-top: 8px; }
 
 /* Main */
 .dash-main {
@@ -329,6 +330,11 @@
     gap: 8px;
   }
 
+  .landing-nav-actions .btn:not(.theme-toggle) {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
   .landing-hero {
     padding: 72px 18px 56px;
   }
@@ -387,6 +393,10 @@
   }
 
   .dash-logout {
+    margin-top: 12px;
+  }
+
+  .dash-theme {
     margin-top: 12px;
   }
 

@@ -32,6 +32,7 @@ export function connectChatSocket(
   token: string,
   handlers: {
     onMessage: (message: ChatSocketMessage) => void;
+    onOpen?: (event: Event) => void;
     onError?: (event: Event) => void;
     onClose?: (event: CloseEvent) => void;
   }
@@ -49,6 +50,7 @@ export function connectChatSocket(
   });
 
   if (handlers.onError) socket.addEventListener('error', handlers.onError);
+  if (handlers.onOpen) socket.addEventListener('open', handlers.onOpen);
   if (handlers.onClose) socket.addEventListener('close', handlers.onClose);
 
   return socket;

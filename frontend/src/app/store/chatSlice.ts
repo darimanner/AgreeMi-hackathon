@@ -7,9 +7,126 @@ import {
   sendMessageRequest,
 } from '../../shared/api';
 import { isAbortError } from '../../shared/api';
-import { normalizeChat, normalizeMessage } from './normalize';
+import { normalizeAnalysis, normalizeChat, normalizeMessage } from './normalize';
 import { abortRequest, finishRequest, startRequest } from './runtime';
 import type { AppStoreSlice, ChatSlice } from './types';
+import type { ChatRoom, Message } from '../../shared/types';
+
+function createOptimisticId(prefix: string): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function appendMessage(rooms: ChatRoom[], chatId: string, message: Message) {
+  return rooms.map(room =>
+    room.id === chatId
+      ? {
+          ...room,
+          messages: dedupeMessages([...room.messages, message]),
+          lastMessageAt: message.timestamp,
+        }
+      : room
+  );
+}
+
+function replaceMessage(rooms: ChatRoom[], chatId: string, targetId: string, message: Message) {
+  return rooms.map(room =>
+    room.id === chatId ? {
+      ...room,
+      messages: replaceMessageInList(room.messages, targetId, message),
+      lastMessageAt: message.timestamp,
+    } : room
+  );
+}
+
+function patchMessage(rooms: ChatRoom[], chatId: string, targetId: string, patch: Partial<Message>) {
+  return rooms.map(room =>
+    room.id === chatId
+      ? {
+          ...room,
+          messages: room.messages.map(existing => (existing.id === targetId ? { ...existing, ...patch } : existing)),
+        }
+      : room
+  );
+}
+
+function removeMessage(rooms: ChatRoom[], chatId: string, targetId: string) {
+  return rooms.map(room =>
+    room.id === chatId
+      ? { ...room, messages: room.messages.filter(message => message.id !== targetId) }
+      : room
+  );
+}
+
+function normalizeComparableContent(content: string): string {
+  return content.trim().replace(/\s+/g, ' ');
+}
+
+function isOptimisticMessage(message: Message): boolean {
+  return message.id.startsWith('optimistic-');
+}
+
+function isSameLogicalMessage(left: Message, right: Message): boolean {
+  if (left.id === right.id) return true;
+  if (left.clientMessageId && left.clientMessageId === right.clientMessageId) return true;
+  if (left.role !== right.role) return false;
+  if (normalizeComparableContent(left.content) !== normalizeComparableContent(right.content)) return false;
+  if (left.authorId !== right.authorId && !left.id.startsWith('optimistic-') && !right.id.startsWith('optimistic-')) return false;
+
+  return Math.abs(left.timestamp.getTime() - right.timestamp.getTime()) < 20_000;
+}
+
+function shouldReplaceExistingMessage(existing: Message, incoming: Message): boolean {
+  if (existing.id === incoming.id) return true;
+  if (existing.clientMessageId && existing.clientMessageId === incoming.clientMessageId) return true;
+  if (existing.status === 'sending' && isSameLogicalMessage(existing, incoming)) return true;
+  return isOptimisticMessage(existing) && !isOptimisticMessage(incoming) && isSameLogicalMessage(existing, incoming);
+}
+
+function dedupeMessages(messages: Message[]): Message[] {
+  return messages.reduce<Message[]>((acc, message) => {
+    const existingIndex = acc.findIndex(existing => shouldReplaceExistingMessage(existing, message));
+
+    if (existingIndex >= 0) {
+      const existing = acc[existingIndex];
+      const nextMessage = isOptimisticMessage(message) && !isOptimisticMessage(existing)
+        ? existing
+        : message;
+      acc[existingIndex] = nextMessage;
+      return acc;
+    }
+
+    return [...acc, message];
+  }, []);
+}
+
+function replaceMessageInList(messages: Message[], targetId: string, message: Message): Message[] {
+  let inserted = false;
+  const next = messages.reduce<Message[]>((acc, existing) => {
+    const shouldReplace = existing.id === targetId || shouldReplaceExistingMessage(existing, message);
+
+    if (shouldReplace) {
+      if (!inserted) {
+        inserted = true;
+        return [...acc, message];
+      }
+      return acc;
+    }
+
+    return [...acc, existing];
+  }, []);
+
+  return dedupeMessages(inserted ? next : [...next, message]);
+}
+
+function mergeServerAndOptimisticMessages(serverMessages: Message[], optimisticMessages: Message[]): Message[] {
+  return dedupeMessages([
+    ...serverMessages,
+    ...optimisticMessages.filter(optimistic =>
+      optimistic.status === 'failed'
+      || !serverMessages.some(serverMessage => isSameLogicalMessage(optimistic, serverMessage))
+    ),
+  ]);
+}
 
 export const createChatSlice: AppStoreSlice<ChatSlice> = (set, get) => ({
   chatRooms: [],
@@ -47,13 +164,17 @@ export const createChatSlice: AppStoreSlice<ChatSlice> = (set, get) => ({
     try {
       const messages = await listMessagesRequest(chatId, {}, signal);
       if (!finishRequest(key, signal)) return;
-
+      const normalizedMessages = messages.map(normalizeMessage);
+      const optimisticMessages = get().chatRooms
+        .find(room => room.id === chatId)
+        ?.messages.filter(message => message.status === 'sending' || message.status === 'failed') ?? [];
+      const mergedMessages = mergeServerAndOptimisticMessages(normalizedMessages, optimisticMessages);
       set({
         chatRooms: get().chatRooms.map(room =>
           room.id === chatId
             ? {
                 ...room,
-                messages: messages.map(normalizeMessage),
+                messages: mergedMessages,
                 lastMessageAt: messages.length > 0
                   ? new Date(messages[messages.length - 1].timestamp ?? messages[messages.length - 1].created_at)
                   : room.lastMessageAt,
@@ -101,6 +222,20 @@ export const createChatSlice: AppStoreSlice<ChatSlice> = (set, get) => ({
 
     const key = `send:${chatId}`;
     const signal = startRequest(key);
+    const optimisticId = createOptimisticId('optimistic-user');
+    const optimisticMessage: Message = {
+      id: optimisticId,
+      clientMessageId: optimisticId,
+      chatId,
+      authorId: currentUser.id,
+      role: currentUser.role,
+      content,
+      attachments,
+      timestamp: new Date(),
+      status: 'sending',
+    };
+
+    set({ chatRooms: appendMessage(get().chatRooms, chatId, optimisticMessage) });
 
     const file = attachments?.[0]?.file;
     try {
@@ -108,7 +243,7 @@ export const createChatSlice: AppStoreSlice<ChatSlice> = (set, get) => ({
       if (!finishRequest(key, signal)) return;
 
       const normalized = normalizeMessage(message);
-      get().receiveMessage(chatId, normalized);
+      set({ chatRooms: replaceMessage(get().chatRooms, chatId, optimisticId, normalized) });
 
       if (attachments && attachments.length > 0) {
         await get().runCommand(chatId, '/analyze');
@@ -116,31 +251,64 @@ export const createChatSlice: AppStoreSlice<ChatSlice> = (set, get) => ({
     } catch (error) {
       if (!isAbortError(error)) {
         finishRequest(key, signal);
+        set({ chatRooms: patchMessage(get().chatRooms, chatId, optimisticId, { status: 'failed' }) });
         throw error;
       }
+      set({ chatRooms: removeMessage(get().chatRooms, chatId, optimisticId) });
     }
   },
 
   runCommand: async (chatId, command) => {
     const key = `command:${chatId}`;
     const signal = startRequest(key);
+    const aiPlaceholderId = createOptimisticId('optimistic-ai');
     set({ streamingChatId: chatId, isAiStreaming: true });
+    set({
+      chatRooms: appendMessage(get().chatRooms, chatId, {
+        id: aiPlaceholderId,
+        clientMessageId: aiPlaceholderId,
+        chatId,
+        authorId: 'ai',
+        role: 'ai',
+        content: command.trim().toLowerCase().startsWith('/analyze')
+          ? 'Analyzing the document…'
+          : 'Working on it…',
+        timestamp: new Date(),
+        isStreaming: true,
+        status: 'sending',
+      }),
+    });
 
     try {
       const response = await runCommandRequest(chatId, command, signal);
       if (!finishRequest(key, signal)) return;
 
       const normalized = normalizeMessage(response.message);
-      get().receiveMessage(chatId, normalized);
+      set({ chatRooms: replaceMessage(get().chatRooms, chatId, aiPlaceholderId, normalized) });
 
       if (command.trim().toLowerCase().startsWith('/analyze')) {
-        await get().loadChats();
+        const analysis = normalizeAnalysis(response.analysis);
+        if (analysis) {
+          set({
+            chatRooms: get().chatRooms.map(room =>
+              room.id === chatId ? { ...room, aiAnalysis: analysis } : room
+            ),
+          });
+        } else {
+          await get().loadChats();
+        }
       }
     } catch (error) {
       if (!isAbortError(error)) {
         finishRequest(key, signal);
+        set({ chatRooms: patchMessage(get().chatRooms, chatId, aiPlaceholderId, {
+          content: 'AI response failed. Try again in a moment.',
+          isStreaming: false,
+          status: 'failed',
+        }) });
         throw error;
       }
+      set({ chatRooms: removeMessage(get().chatRooms, chatId, aiPlaceholderId) });
     } finally {
       if (get().streamingChatId === chatId) {
         set({ streamingChatId: null, isAiStreaming: false });
@@ -152,13 +320,11 @@ export const createChatSlice: AppStoreSlice<ChatSlice> = (set, get) => ({
     set({
       chatRooms: get().chatRooms.map(room =>
         room.id === chatId
-          ? room.messages.some(existing => existing.id === message.id)
-            ? { ...room, lastMessageAt: message.timestamp }
-            : {
-                ...room,
-                messages: [...room.messages, message],
-                lastMessageAt: message.timestamp,
-              }
+          ? {
+              ...room,
+              messages: replaceMessageInList(room.messages, message.id, message),
+              lastMessageAt: message.timestamp,
+            }
           : room
       ),
     });

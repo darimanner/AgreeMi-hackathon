@@ -1,5 +1,6 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { useAppStore } from './app/store';
 import './App.css';
 
 const HomePage    = lazy(() => import('./pages/HomePage').then(m => ({ default: m.HomePage })));
@@ -9,6 +10,12 @@ const ChatPage    = lazy(() => import('./pages/ChatPage').then(m => ({ default: 
 const JoinPage    = lazy(() => import('./pages/JoinPage').then(m => ({ default: m.JoinPage })));
 
 function App() {
+  const theme = useAppStore(s => s.theme);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
+
   return (
     <div id="app-root">
       <Suspense fallback={null}>

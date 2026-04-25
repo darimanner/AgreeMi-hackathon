@@ -77,3 +77,12 @@ export async function apiRequest<T>(
 export function buildApiUrl(path: string, query?: Record<string, string | number | undefined>): string {
   return buildUrl(path, query);
 }
+
+export async function pingApiServer(signal?: AbortSignal): Promise<number> {
+  const startedAt = performance.now();
+  await fetch(buildUrl('/openapi.json'), {
+    cache: 'no-store',
+    signal,
+  });
+  return Math.round(performance.now() - startedAt);
+}

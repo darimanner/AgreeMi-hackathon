@@ -3,6 +3,7 @@ import type { Attachment, ChatRoom, User } from '../../shared/types';
 
 export type AuthResult = { success: boolean; error?: string };
 export type JoinResult = AuthResult & { chatId?: string };
+export type ThemeMode = 'dark' | 'light';
 
 export interface AuthSlice {
   currentUser: User | null;
@@ -32,8 +33,11 @@ export interface ChatSlice {
 
 export interface UiSlice {
   isSidebarOpen: boolean;
+  theme: ThemeMode;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
+  toggleTheme: () => void;
+  setTheme: (theme: ThemeMode) => void;
 }
 
 export type AppStore = AuthSlice & ChatSlice & UiSlice;

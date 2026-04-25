@@ -28,6 +28,8 @@ export interface Message {
   attachments?: Attachment[];
   timestamp: Date;
   isStreaming?: boolean;
+  status?: 'sending' | 'sent' | 'failed';
+  clientMessageId?: string;
 }
 
 export interface ChatRoom {
@@ -44,17 +46,22 @@ export interface ChatRoom {
 // ── AI Analysis (sidebar) ─────────────────────────────────────────────────────
 export interface AiIssue {
   id: string;
-  severity: 'critical' | 'warning' | 'info';
+  severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
   title: string;
   description: string;
   suggestion: string;
+  quote?: string;
+  startLine?: number;
+  endLine?: number;
 }
 
 export interface AiAnalysis {
   summary: string;
-  score: number;
-  issues: AiIssue[];
+  score?: number;
+  issues?: AiIssue[];
   generatedAt: Date;
+  analysisMarkdown?: string;
+  documentMarkdown?: string;
 }
 
 // ── App state ─────────────────────────────────────────────────────────────────

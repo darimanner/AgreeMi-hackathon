@@ -28,10 +28,12 @@ export type RegisterResponse = ApiUser;
 
 export interface ChatOut {
   id: string;
-  title: string;
+  title: string | null;
   invite_code: string;
-  developer_id: string;
-  client_id: string | null;
+  developer_id?: string;
+  client_id?: string | null;
+  developer_ids?: string[];
+  client_ids?: string[];
   ai_analysis_json?: BackendAiAnalysis | null;
   created_at: string;
   updated_at?: string;
@@ -61,23 +63,29 @@ export interface BackendMessage {
 
 export interface BackendIssue {
   id: string;
-  severity: 'critical' | 'warning' | 'info' | 'high' | 'medium' | 'low';
+  severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
   title: string;
-  description: string;
-  suggestion: string;
+  explanation: string;
+  recommendation: string;
+  quote?: string;
+  start_line?: number;
+  end_line?: number;
 }
 
 export interface BackendAiAnalysis {
+  document_markdown: string;
+  analysis_markdown: string;
   score: number;
-  summary: string;
-  issues: BackendIssue[];
+  findings: BackendIssue[];
   generatedAt?: string;
+  generated_at?: string;
 }
 
 export interface CommandResponse {
   command: string;
   result: string;
   message: BackendMessage;
+  analysis?: BackendAiAnalysis | null;
 }
 
 export interface NormalizedChatRoom extends ChatRoom {

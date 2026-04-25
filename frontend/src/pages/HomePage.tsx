@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import {
   Zap, Plus, MessageSquare, Clock, ArrowRight,
   LogOut, ChevronRight, User, Settings, Link2, UserPlus,
-  Bot, Terminal, Paperclip
+  Bot, Terminal, Paperclip, Moon, Sun
 } from 'lucide-react';
 import { useAppStore } from '../app/store';
 import './home.css';
@@ -18,6 +18,17 @@ function formatRelative(date: Date): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
+function getAuthorLabel(
+  authorId: string,
+  currentUser: { id: string; name: string } | null,
+  participants: Array<{ id: string; name: string }>
+): string {
+  if (authorId === 'ai') return 'ReqLens AI';
+  if (authorId === 'system') return 'System';
+  if (currentUser && authorId === currentUser.id) return currentUser.name;
+  return participants.find(user => user.id === authorId)?.name ?? (authorId.length > 8 ? authorId.slice(0, 8) : authorId);
+}
+
 export const HomePage: React.FC = () => {
   const currentUser    = useAppStore(s => s.currentUser);
   const isAuthenticated = useAppStore(s => s.isAuthenticated);
@@ -25,6 +36,8 @@ export const HomePage: React.FC = () => {
   const createChat     = useAppStore(s => s.createChat);
   const setActiveChat  = useAppStore(s => s.setActiveChat);
   const logout         = useAppStore(s => s.logout);
+  const theme          = useAppStore(s => s.theme);
+  const toggleTheme    = useAppStore(s => s.toggleTheme);
 
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
@@ -83,6 +96,9 @@ export const HomePage: React.FC = () => {
             <span className="logo-text">ReqLens</span>
           </div>
           <div className="landing-nav-actions">
+            <button className="btn btn-ghost theme-toggle" onClick={toggleTheme} title="Toggle theme">
+              {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+            </button>
             <Link to="/login" className="btn btn-ghost">Sign in</Link>
             <Link to="/register" className="btn btn-primary">Get started</Link>
           </div>
@@ -181,6 +197,11 @@ export const HomePage: React.FC = () => {
           </button>
         </nav>
 
+        <button className="dash-theme btn btn-ghost" onClick={toggleTheme}>
+          {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+          {theme === 'dark' ? 'Light theme' : 'Dark theme'}
+        </button>
+
         <button className="dash-logout btn btn-danger" onClick={logout}>
           <LogOut size={15} />
           Sign out
@@ -233,6 +254,7 @@ export const HomePage: React.FC = () => {
           )}
           {chatRooms.map(room => {
             const last = room.messages[room.messages.length - 1];
+            const lastAuthor = last ? getAuthorLabel(last.authorId, currentUser, room.participants) : '';
             return (
               <button
                 key={room.id}
@@ -251,7 +273,9 @@ export const HomePage: React.FC = () => {
                     </span>
                   </div>
                   <div className="chat-item-preview text-sm text-muted">
-                    {last ? last.content.slice(0, 70) + (last.content.length > 70 ? '…' : '') : 'No messages yet'}
+                    {last
+                      ? `${lastAuthor}: ${last.content.slice(0, 70)}${last.content.length > 70 ? '…' : ''}`
+                      : 'No messages yet'}
                   </div>
                   <div className="chat-item-meta">
                     <span className="badge badge-purple text-xs">

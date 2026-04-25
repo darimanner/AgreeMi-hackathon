@@ -20,6 +20,7 @@ export const useAppStore = create<AppStore>()(
         chatRooms: state.chatRooms,
         activeChatId: state.activeChatId,
         isSidebarOpen: state.isSidebarOpen,
+        theme: state.theme,
       }),
     }
   )
