@@ -16,6 +16,7 @@ export const AiAnalysisSidebar: React.FC<AiAnalysisSidebarProps> = ({ chatId }) 
   const room = chatRooms.find(r => r.id === chatId);
   const analysis = room?.aiAnalysis;
 
+
   const handleResizeStart = (event: React.PointerEvent<HTMLButtonElement>) => {
     event.preventDefault();
     const startX = event.clientX;
@@ -66,7 +67,10 @@ export const AiAnalysisSidebar: React.FC<AiAnalysisSidebarProps> = ({ chatId }) 
         </div>
         
         <div className="sidebar-body-scroll">
-          <AiAnalysisContent analysis={analysis} />
+          <AiAnalysisContent 
+            analysis={analysis} 
+            isLoading={!analysis && chatRooms.length === 0} 
+          />
         </div>
       </div>
     </aside>

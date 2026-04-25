@@ -48,7 +48,10 @@ export const AiAnalysisDrawer: React.FC<AiAnalysisDrawerProps> = ({ chatId, isOp
 
         {/* Content */}
         <div className="ai-drawer-body">
-          <AiAnalysisContent analysis={analysis} />
+          <AiAnalysisContent 
+            analysis={analysis} 
+            isLoading={!analysis && chatRooms.length === 0}
+          />
         </div>
       </div>
     </div>

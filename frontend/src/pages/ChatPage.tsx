@@ -51,6 +51,8 @@ export const ChatPage: React.FC = () => {
   const sendMessage  = useAppStore(s => s.sendMessage);
   const runCommand   = useAppStore(s => s.runCommand);
   const toggleSidebar = useAppStore(s => s.toggleSidebar);
+  const loadChats    = useAppStore(s => s.loadChats);
+
 
   const room = chatRooms.find(r => r.id === chatId);
 
@@ -73,12 +75,15 @@ export const ChatPage: React.FC = () => {
   useEffect(() => {
     if (isAuthenticated && chatId) {
       void loadMessages(chatId);
+      if (chatRooms.length === 0) {
+        void loadChats();
+      }
     }
 
     return () => {
       if (chatId) leaveChat(chatId);
     };
-  }, [isAuthenticated, chatId, leaveChat, loadMessages]);
+  }, [isAuthenticated, chatId, leaveChat, loadMessages, loadChats, chatRooms.length]);
 
   useEffect(() => {
     if (!accessToken || !chatId) {

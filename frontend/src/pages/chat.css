@@ -1176,3 +1176,20 @@
   }
 }
 
+/* ── Visibility Helpers ─────────────────────────────────────────────────── */
+@media (min-width: 1025px) {
+  .mobile-only { display: none !important; }
+}
+@media (max-width: 1024px) {
+  .desktop-only { display: none !important; }
+}
+
+/* Sidebar for Desktop Body Scroll */
+.sidebar-body-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}

@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
-  Paperclip, AlertTriangle, Info, AlertCircle, Lightbulb, Bot
+  Paperclip, AlertTriangle, Info, AlertCircle, Lightbulb, Bot, Loader2
 } from 'lucide-react';
 import { createDocumentBlocks, getIssueForBlock, isIssuePopoverAnchor } from '../utils/markdownAnalysis';
 import type { AiAnalysis } from '../types';
@@ -10,9 +10,14 @@ import type { AiAnalysis } from '../types';
 interface AiAnalysisContentProps {
   analysis?: AiAnalysis;
   showTitle?: boolean;
+  isLoading?: boolean;
 }
 
-export const AiAnalysisContent: React.FC<AiAnalysisContentProps> = ({ analysis, showTitle = false }) => {
+export const AiAnalysisContent: React.FC<AiAnalysisContentProps> = ({ 
+  analysis, 
+  showTitle = false,
+  isLoading = false 
+}) => {
   const issues = analysis?.issues ?? [];
   const documentMarkdown = analysis?.documentMarkdown;
   const documentBlocks = useMemo(() => 
@@ -31,6 +36,15 @@ export const AiAnalysisContent: React.FC<AiAnalysisContentProps> = ({ analysis, 
     if (sev === 'medium') return 'badge-yellow';
     return 'badge-blue';
   };
+
+  if (isLoading) {
+    return (
+      <div className="sidebar-empty">
+        <Loader2 size={32} className="animate-spin text-blue-400" />
+        <p>Fetching AI analysis…</p>
+      </div>
+    );
+  }
 
   if (!analysis) {
     return (
