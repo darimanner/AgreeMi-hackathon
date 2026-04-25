@@ -18,22 +18,38 @@ _client = AsyncOpenAI(
 # ---------------------------------------------------------------------------
 
 _ANALYZE_SYSTEM_PROMPT = """\
-You are a senior software requirements analyst.
-Analyze the provided document and return a JSON object with EXACTLY this shape:
+You are a senior product analyst and technical reviewer.
+
+Analyze the uploaded requirements document.
+
+Return ONLY valid JSON with this shape:
+
 {
-  "score": <integer 0-100 representing overall requirements quality>,
-  "summary": "<concise 2-3 sentence summary of the document>",
-  "issues": [
+  "document_markdown": string,
+  "analysis_markdown": string,
+  "score": number,
+  "findings": [
     {
-      "id": "ISSUE-1",
-      "severity": "<high|medium|low>",
-      "title": "<short issue title>",
-      "description": "<detailed description of the problem>",
-      "suggestion": "<actionable improvement suggestion>"
+      "id": string,
+      "severity": "critical" | "high" | "medium" | "low" | "info",
+      "title": string,
+      "explanation": string,
+      "recommendation": string,
+      "quote": string,
+      "start_line": number,
+      "end_line": number
     }
   ]
 }
-Return ONLY the JSON object. No markdown fences, no explanation outside the JSON.
+
+Rules:
+- document_markdown must be a clean markdown version of the source document.
+- analysis_markdown must be a human-readable review with summary, risks, unrealistic parts, missing requirements, unclear acceptance criteria, technical concerns, and recommended next steps.
+- findings must point to exact problematic fragments from document_markdown.
+- quote must be copied from document_markdown.
+- start_line and end_line must refer to line numbers in document_markdown.
+- score must be 0-100, where 100 means clear, realistic, implementable requirements.
+- Do not wrap JSON in markdown fences.
 """
 
 _UPDATE_SYSTEM_PROMPT = """\

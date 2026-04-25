@@ -35,29 +35,20 @@ def _role_for_user(user_role: UserRole) -> MessageRole:
 async def _assert_participant(
     chat_id: uuid.UUID, user_id: uuid.UUID, session: DBSession
 ) -> Chat:
-    """Verify the user is a participant (developer or client) of the chat.
-
-    Args:
-        chat_id: Target chat UUID.
-        user_id: Authenticated user UUID.
-        session: Async database session.
-
-    Returns:
-        Chat ORM instance.
-
-    Raises:
-        HTTPException: 404 if chat not found, 403 if user is not a participant.
-    """
-    result = await session.execute(select(Chat).where(Chat.id == chat_id))
+    result = await session.execute(
+        select(Chat)
+        .where(Chat.id == chat_id)
+        .options(selectinload(Chat.developers), selectinload(Chat.clients))
+    )
     chat = result.scalar_one_or_none()
     if chat is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found"
         )
-    if chat.developer_id != user_id and chat.client_id != user_id:
+    member_ids = {u.id for u in chat.developers} | {u.id for u in chat.clients}
+    if user_id not in member_ids:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not a participant of this chat",
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not a participant of this chat"
         )
     return chat
 

@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from clients.openai_client import analyze_document, summarize_messages
+from config import settings
 from core.logger import logger
 from core.ws_manager import manager
 from deps import CurrentUser, DBSession
@@ -21,29 +22,20 @@ async def _get_participant_chat(
     user_id: uuid.UUID,
     session: DBSession,
 ) -> Chat:
-    """Return the Chat if the user is a participant, else raise.
-
-    Args:
-        chat_id: UUID of the target chat.
-        user_id: Authenticated user UUID.
-        session: Async database session.
-
-    Returns:
-        Chat ORM instance.
-
-    Raises:
-        HTTPException: 404/403 as appropriate.
-    """
-    result = await session.execute(select(Chat).where(Chat.id == chat_id))
+    result = await session.execute(
+        select(Chat)
+        .where(Chat.id == chat_id)
+        .options(selectinload(Chat.developers), selectinload(Chat.clients))
+    )
     chat = result.scalar_one_or_none()
     if chat is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found"
         )
-    if chat.developer_id != user_id and chat.client_id != user_id:
+    member_ids = {u.id for u in chat.developers} | {u.id for u in chat.clients}
+    if user_id not in member_ids:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not a participant of this chat",
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not a participant of this chat"
         )
     return chat
 
@@ -179,21 +171,20 @@ async def run_command(
     chat_result = await session.execute(select(Chat).where(Chat.id == chat_id))
     chat = chat_result.scalar_one()
     chat.ai_analysis_json = analysis.model_dump()
-    # Also record raw analysis text on the attachment for traceability.
-    attachment.ai_analysis = analysis.summary
-    attachment.model_used = "gpt-4o"
+    attachment.ai_analysis = analysis.analysis_markdown
+    attachment.model_used = settings.ai.model
     await session.commit()
 
     result_text = (
         f"**Analysis complete** (score: {analysis.score}/100)\n\n"
-        f"{analysis.summary}\n\n"
+        f"{analysis.analysis_markdown}\n\n"
         + (
             "\n".join(
-                f"- [{i.severity.upper()}] **{i.title}**: {i.suggestion}"
-                for i in analysis.issues
+                f"- [{i.severity.upper()}] **{i.title}**: {i.recommendation}"
+                for i in analysis.findings
             )
-            if analysis.issues
-            else "_No issues identified._"
+            if analysis.findings
+            else "_No findings identified._"
         )
     )
 
@@ -203,7 +194,7 @@ async def run_command(
         "/analyze complete",
         chat_id=str(chat_id),
         score=analysis.score,
-        issues=len(analysis.issues),
+        findings=len(analysis.findings),
     )
     return CommandResponse(
         command=payload.command,

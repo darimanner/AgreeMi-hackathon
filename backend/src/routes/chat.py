@@ -2,38 +2,39 @@ import uuid
 
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import or_, select
+from sqlalchemy.orm import selectinload
 
 from core.logger import logger
 from deps import CurrentUser, DBSession
 from models.chat import Chat
+from models.user import User
 from schemas.chat import ChatCreate, ChatListItem, ChatOut, JoinResponse
 
 router = APIRouter()
 
 
+async def _load_chat(chat_id: uuid.UUID, session: DBSession) -> Chat | None:
+    result = await session.execute(
+        select(Chat)
+        .where(Chat.id == chat_id)
+        .options(selectinload(Chat.developers), selectinload(Chat.clients))
+    )
+    return result.scalar_one_or_none()
+
+
 @router.get(
-    "",
-    response_model=list[ChatListItem],
-    summary="List all chats I participate in",
+    "", response_model=list[ChatListItem], summary="List all chats I participate in"
 )
 async def list_chats(current_user: CurrentUser, session: DBSession) -> list[ChatListItem]:
-    """Return all chat rooms where the current user is developer or client.
-
-    Args:
-        current_user: Authenticated user from JWT.
-        session: Async database session.
-
-    Returns:
-        List of chat summaries.
-    """
     result = await session.execute(
         select(Chat)
         .where(
             or_(
-                Chat.developer_id == current_user.id,
-                Chat.client_id == current_user.id,
+                Chat.developers.any(User.id == current_user.id),
+                Chat.clients.any(User.id == current_user.id),
             )
         )
+        .options(selectinload(Chat.developers), selectinload(Chat.clients))
         .order_by(Chat.created_at.desc())
     )
     chats = result.scalars().all()
@@ -51,21 +52,12 @@ async def create_chat(
     current_user: CurrentUser,
     session: DBSession,
 ) -> ChatOut:
-    """Create a chat room owned by the current user as developer.
-
-    Args:
-        payload: Optional title.
-        current_user: Authenticated user.
-        session: Async database session.
-
-    Returns:
-        Created chat room with invite_code.
-    """
-    chat = Chat(developer_id=current_user.id, title=payload.title)
+    chat = Chat(title=payload.title)
+    chat.developers.append(current_user)
     session.add(chat)
     await session.commit()
-    await session.refresh(chat)
 
+    chat = await _load_chat(chat.id, session)  # type: ignore[assignment]
     logger.info(
         "Chat created",
         chat_id=str(chat.id),
@@ -78,28 +70,18 @@ async def create_chat(
 @router.post(
     "/join/{invite_code}",
     response_model=JoinResponse,
-    summary="Join an existing chat via invite code",
+    summary="Join an existing chat as a client via invite code",
 )
 async def join_chat(
     invite_code: str,
     current_user: CurrentUser,
     session: DBSession,
 ) -> JoinResponse:
-    """Associate the current user as the client of the chat identified by *invite_code*.
-
-    Args:
-        invite_code: URL-safe string from the chat's invite link.
-        current_user: Authenticated user.
-        session: Async database session.
-
-    Returns:
-        JoinResponse with the updated chat.
-
-    Raises:
-        HTTPException: 404 if no matching chat exists.
-        HTTPException: 409 if the chat already has a client or user is the developer.
-    """
-    result = await session.execute(select(Chat).where(Chat.invite_code == invite_code))
+    result = await session.execute(
+        select(Chat)
+        .where(Chat.invite_code == invite_code)
+        .options(selectinload(Chat.developers), selectinload(Chat.clients))
+    )
     chat = result.scalar_one_or_none()
 
     if chat is None:
@@ -107,42 +89,23 @@ async def join_chat(
             status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found"
         )
 
-    if chat.developer_id == current_user.id:
+    developer_ids = {u.id for u in chat.developers}
+    client_ids = {u.id for u in chat.clients}
+
+    if current_user.id in developer_ids:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Cannot join a chat you created",
+            detail="Cannot join a chat you are a developer of",
         )
-    if chat.client_id is not None and chat.client_id != current_user.id:
+    if current_user.id in client_ids:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Chat already has a client",
+            detail="Already a member of this chat",
         )
 
-    chat.client_id = current_user.id
+    chat.clients.append(current_user)
     await session.commit()
-    await session.refresh(chat)
 
+    chat = await _load_chat(chat.id, session)  # type: ignore[assignment]
     logger.info("User joined chat", chat_id=str(chat.id), user_id=str(current_user.id))
     return JoinResponse(chat=ChatOut.model_validate(chat))
-
-
-async def _get_chat_or_404(chat_id: uuid.UUID, session: DBSession) -> Chat:
-    """Fetch a Chat by ID or raise 404.
-
-    Args:
-        chat_id: UUID of the chat to fetch.
-        session: Async database session.
-
-    Returns:
-        Chat ORM instance.
-
-    Raises:
-        HTTPException: 404 if not found.
-    """
-    result = await session.execute(select(Chat).where(Chat.id == chat_id))
-    chat = result.scalar_one_or_none()
-    if chat is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found"
-        )
-    return chat

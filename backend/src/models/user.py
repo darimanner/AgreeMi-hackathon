@@ -16,48 +16,34 @@ if TYPE_CHECKING:
 
 
 class UserRole(StrEnum):
-    """Participant role within the ReqLens platform."""
-
     CLIENT = "client"
     DEVELOPER = "developer"
 
 
 class User(Base, TimestampMixin):
-    """Registered platform user."""
-
     __tablename__ = "users"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        primary_key=True,
-        default=uuid.uuid4,
-    )
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     email: Mapped[str] = mapped_column(
         String(255), unique=True, nullable=False, index=True
     )
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[UserRole] = mapped_column(
-        Enum(UserRole, name="user_role"),
-        nullable=False,
-        default=UserRole.CLIENT,
+        Enum(UserRole, name="user_role"), nullable=False, default=UserRole.CLIENT
     )
 
-    # A developer owns (created) chats; a client joins them.
     developer_chats: Mapped[list[Chat]] = relationship(
         "Chat",
-        foreign_keys="Chat.developer_id",
-        back_populates="developer",
+        secondary="chat_developers",
+        back_populates="developers",
     )
     client_chats: Mapped[list[Chat]] = relationship(
         "Chat",
-        foreign_keys="Chat.client_id",
-        back_populates="client",
+        secondary="chat_clients",
+        back_populates="clients",
     )
-    messages: Mapped[list[Message]] = relationship(
-        "Message",
-        back_populates="author",
-    )
+    messages: Mapped[list[Message]] = relationship("Message", back_populates="author")
     attachments: Mapped[list[Attachment]] = relationship(
-        "Attachment",
-        back_populates="uploaded_by",
+        "Attachment", back_populates="uploaded_by"
     )
