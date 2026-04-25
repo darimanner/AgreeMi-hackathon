@@ -7,7 +7,6 @@ from config import settings
 from core.logger import logger
 from schemas.analysis import AnalysisResult
 
-# The AsyncOpenAI SDK is fully compatible with OpenRouter's API surface.
 _client = AsyncOpenAI(
     api_key=settings.ai.api_key,
     base_url=settings.ai.base_url,
@@ -50,6 +49,7 @@ Rules:
 - start_line and end_line must refer to line numbers in document_markdown.
 - score must be 0-100, where 100 means clear, realistic, implementable requirements.
 - Do not wrap JSON in markdown fences.
+- CRITICAL: All string values must use \\n for line breaks, never literal newline characters. The output must be valid single-object JSON parseable by json.loads().
 """
 
 _UPDATE_SYSTEM_PROMPT = """\
@@ -58,6 +58,55 @@ Given a list of recent chat messages, produce a concise 2-4 sentence summary
 describing the current project status and any key decisions or blockers mentioned.
 Be factual, neutral, and developer-friendly.
 """
+
+
+# ---------------------------------------------------------------------------
+# JSON sanitizer
+# ---------------------------------------------------------------------------
+
+
+def _escape_control_char(char: str) -> str:
+    if char == "\n":
+        return "\\n"
+    if char == "\r":
+        return "\\r"
+    if char == "\t":
+        return "\\t"
+    return f"\\u{ord(char):04x}"
+
+
+def _sanitize_json(raw: str) -> str:
+    """Escape unescaped control characters inside JSON string literals.
+
+    LLMs sometimes output literal newlines/tabs inside JSON strings instead
+    of the required \\n / \\t escapes, which makes json.loads() fail with
+    'Invalid control character'. This function fixes that by scanning the
+    raw string character by character and escaping any bare control char
+    found inside a JSON string value.
+    """
+    result: list[str] = []
+    in_string = False
+    escape_next = False
+
+    for char in raw:
+        if escape_next:
+            result.append(char)
+            escape_next = False
+            continue
+        if char == "\\" and in_string:
+            result.append(char)
+            escape_next = True
+            continue
+        if char == '"':
+            in_string = not in_string
+            result.append(char)
+            continue
+        if in_string and ord(char) < 0x20:
+            result.append(_escape_control_char(char))
+        else:
+            result.append(char)
+
+    return "".join(result)
 
 
 # ---------------------------------------------------------------------------
@@ -128,18 +177,6 @@ def _raise_for_ai_error(exc: Exception) -> None:
 
 
 async def analyze_document(text: str) -> AnalysisResult:
-    """Analyze *text* and return a structured AnalysisResult.
-
-    Args:
-        text: Extracted plain text / markdown from the uploaded document.
-
-    Returns:
-        Validated AnalysisResult pydantic model.
-
-    Raises:
-        ValueError: If the model returns malformed JSON.
-        openai.OpenAIError: On API failure.
-    """
     logger.info(
         "Sending document for AI analysis",
         model=settings.ai.model,
@@ -155,6 +192,7 @@ async def analyze_document(text: str) -> AnalysisResult:
                 {"role": "user", "content": text[:12_000]},
             ],
             temperature=0.2,
+            max_tokens=6000,
         )
     except Exception as exc:
         _raise_for_ai_error(exc)
@@ -165,26 +203,18 @@ async def analyze_document(text: str) -> AnalysisResult:
         tokens_used=response.usage and response.usage.total_tokens,
     )
 
+    sanitized = _sanitize_json(raw)
     try:
-        data = json.loads(raw)
+        data = json.loads(sanitized)
         return AnalysisResult.model_validate(data)
     except Exception as exc:
-        logger.error("Failed to parse AI analysis response", raw=raw[:500])
+        logger.error(
+            "Failed to parse AI analysis response", raw=raw[:500], error=str(exc)
+        )
         raise ValueError(f"Model returned unparseable JSON: {exc}") from exc
 
 
 async def summarize_messages(messages: list[str]) -> str:
-    """Summarize *messages* into a short project progress update.
-
-    Args:
-        messages: Recent message content strings (chronological order).
-
-    Returns:
-        Plain-text summary paragraph.
-
-    Raises:
-        openai.OpenAIError: On API failure.
-    """
     transcript = "\n".join(f"- {m}" for m in messages)
     logger.info(
         "Summarizing messages for /update", count=len(messages), model=settings.ai.model

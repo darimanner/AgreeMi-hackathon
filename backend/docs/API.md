@@ -256,8 +256,25 @@ Slash-команды запускают AI-операции над контен�
 ```json
 {
   "command": "/analyze",
-  "result": "**Analysis complete** (score: 82/100)\n\nДокумент содержит...\n\n- [HIGH] **Отсутствие сроков**: Добавьте дедлайны...",
-  "message": { ...MessageOut }
+  "result": "**Analysis complete** (score: 82/100)\n\n...",
+  "message": { "...": "MessageOut" },
+  "analysis": {
+    "score": 82,
+    "document_markdown": "# Техническое задание\n\n...",
+    "analysis_markdown": "## Резюме\n\n...",
+    "findings": [
+      {
+        "id": "FINDING-1",
+        "severity": "high",
+        "title": "Отсутствие сроков",
+        "explanation": "В ТЗ не указаны сроки выполнения этапов",
+        "recommendation": "Добавить дедлайны для каждого milestone",
+        "quote": "Исполнитель разрабатывает модуль авторизации.",
+        "start_line": 12,
+        "end_line": 14
+      }
+    ]
+  }
 }
 ```
 

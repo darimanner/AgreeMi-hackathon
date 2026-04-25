@@ -1,7 +1,7 @@
 import uuid
 
 from fastapi import APIRouter, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import and_, select
 from sqlalchemy.orm import selectinload
 
 from clients.openai_client import analyze_document, summarize_messages
@@ -9,7 +9,7 @@ from config import settings
 from core.logger import logger
 from core.ws_manager import manager
 from deps import CurrentUser, DBSession
-from models.chat import Chat
+from models.chat import Chat, chat_clients, chat_developers
 from models.file import Attachment
 from models.message import Message, MessageRole
 from schemas.message import CommandName, CommandRequest, CommandResponse, MessageOut
@@ -22,18 +22,32 @@ async def _get_participant_chat(
     user_id: uuid.UUID,
     session: DBSession,
 ) -> Chat:
+    """Fetch Chat and verify membership in 1 DB round trip via LEFT JOIN."""
     result = await session.execute(
-        select(Chat)
+        select(
+            Chat,
+            chat_developers.c.user_id.label("dev_uid"),
+            chat_clients.c.user_id.label("cli_uid"),
+        )
+        .outerjoin(
+            chat_developers,
+            and_(
+                chat_developers.c.chat_id == Chat.id, chat_developers.c.user_id == user_id
+            ),
+        )
+        .outerjoin(
+            chat_clients,
+            and_(chat_clients.c.chat_id == Chat.id, chat_clients.c.user_id == user_id),
+        )
         .where(Chat.id == chat_id)
-        .options(selectinload(Chat.developers), selectinload(Chat.clients))
     )
-    chat = result.scalar_one_or_none()
-    if chat is None:
+    row = result.one_or_none()
+    if row is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found"
         )
-    member_ids = {u.id for u in chat.developers} | {u.id for u in chat.clients}
-    if user_id not in member_ids:
+    chat, dev_uid, cli_uid = row
+    if dev_uid is None and cli_uid is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not a participant of this chat"
         )
@@ -105,7 +119,7 @@ async def run_command(
     Returns:
         CommandResponse with the AI-generated text and the saved message.
     """
-    await _get_participant_chat(chat_id, current_user.id, session)
+    chat = await _get_participant_chat(chat_id, current_user.id, session)
 
     if payload.command == CommandName.UPDATE:
         result = await session.execute(
@@ -167,9 +181,6 @@ async def run_command(
             status_code=status.HTTP_502_BAD_GATEWAY, detail="AI analysis failed"
         ) from exc
 
-    # Persist structured result on the Chat row.
-    chat_result = await session.execute(select(Chat).where(Chat.id == chat_id))
-    chat = chat_result.scalar_one()
     chat.ai_analysis_json = analysis.model_dump()
     attachment.ai_analysis = analysis.analysis_markdown
     attachment.model_used = settings.ai.model
@@ -200,4 +211,5 @@ async def run_command(
         command=payload.command,
         result=result_text,
         message=MessageOut.model_validate(msg),
+        analysis=analysis,
     )

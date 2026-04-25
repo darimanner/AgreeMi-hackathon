@@ -5,6 +5,7 @@ import uuid
 from pydantic import BaseModel, Field
 
 from models.message import MessageRole
+from schemas.analysis import AnalysisResult
 
 
 class AttachmentOut(BaseModel):
@@ -67,3 +68,4 @@ class CommandResponse(BaseModel):
     command: CommandName
     result: str
     message: MessageOut
+    analysis: AnalysisResult | None = None
