@@ -66,14 +66,15 @@ async def generate_analysis_summary(
     current_user: CurrentUser,
     session: DBSession,
 ) -> AnalysisSummaryResponse:
-    """Generate a concise executive summary of the most recent analysis version.
+    """Generate a Markdown TODO list from the most recent analysis version.
 
     Fetches the latest ``AnalysisVersion`` by ``version_number`` — always
     fresh, never a stale cache. Passes the score, review, and findings to
-    the AI and returns a 3-5 sentence plain-language summary suitable for
-    both developers and non-technical stakeholders.
+    the AI and returns a short actionable task list in Markdown format,
+    prioritised by finding severity (critical → high → medium → low).
 
-    Returns ``summary``, ``version`` number, and ``score`` of the analysed version.
+    Returns ``summary`` (Markdown TODO list), ``version`` number, and ``score``
+    of the analysed version.
     """
     await _assert_participant(chat_id, current_user.id, session)
 

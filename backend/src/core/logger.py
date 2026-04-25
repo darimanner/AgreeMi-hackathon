@@ -1,15 +1,10 @@
+from collections.abc import Sequence
 import logging
 from typing import Any
 
 import structlog
 from structlog.dev import ConsoleRenderer
-from structlog.processors import (
-    JSONRenderer,
-    StackInfoRenderer,
-    TimeStamper,
-    add_log_level,
-)
-from structlog.types import Processor
+from structlog.processors import add_log_level
 
 
 class InterceptHandler(logging.Handler):
@@ -28,31 +23,21 @@ def setup_logging(debug: bool = False) -> None:
     Configures structlog for the application and intercepts standard logging.
 
     Args:
-        debug: If True, uses ConsoleRenderer for pretty printing.
-               If False, uses JSONRenderer for production logging.
+        debug: If True, uses ConsoleRenderer for pretty printing with colors.
+        If False, uses JSONRenderer for production logging.
     """
-    shared_processors: list[Processor] = [
+    # Always use pretty console output with colors
+    processors: Sequence[Any] = [
         structlog.contextvars.merge_contextvars,
         add_log_level,
+        structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S"),
+        structlog.processors.StackInfoRenderer(),
         structlog.processors.UnicodeDecoder(),
-        TimeStamper(fmt="iso"),
+        ConsoleRenderer(
+            colors=True,
+            exception_formatter=structlog.dev.rich_traceback,
+        ),
     ]
-
-    if debug:
-        # Development: Pretty print to console
-        processors = shared_processors + [
-            StackInfoRenderer(),
-            ConsoleRenderer(
-                colors=True,
-                exception_formatter=structlog.dev.rich_traceback,
-            ),
-        ]
-    else:
-        # Production: JSON output
-        processors = shared_processors + [
-            structlog.processors.dict_tracebacks,
-            JSONRenderer(),
-        ]
 
     structlog.configure(
         processors=processors,

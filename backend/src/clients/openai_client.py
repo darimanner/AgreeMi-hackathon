@@ -90,12 +90,20 @@ Be factual, neutral, and developer-friendly.
 """
 
 _ANALYSIS_SUMMARY_PROMPT = """\
-You are a technical writer producing an executive summary of a requirements document analysis.
+You are a technical writer converting a requirements document analysis into an actionable task list.
 
-Given the analysis score, findings, and review, produce a concise 3-5 sentence executive summary.
-Focus on: overall quality, the most critical issues, and the single most important next step.
-Write in plain language suitable for both developers and non-technical stakeholders.
-Return ONLY the summary text — no headers, no bullet points, no preamble.
+Given the analysis score, findings, and review, produce a concise Markdown TODO list of concrete improvements needed.
+Prioritize by severity: critical and high items come first.
+Keep it short: 5-10 items maximum.
+Each item must be a specific, actionable task — not a vague observation.
+
+Use this exact format:
+## TODO
+
+- [ ] <task>
+- [ ] <task>
+
+Return ONLY the Markdown — no preamble, no explanation, no trailing text.
 """
 
 _DIFF_SYSTEM_PROMPT = """\
@@ -566,7 +574,7 @@ async def summarize_analysis(
                 {"role": "user", "content": user_msg[:12_000]},
             ],
             temperature=0.3,
-            max_tokens=500,
+            max_tokens=1000,
         )
     except Exception as exc:
         _raise_for_ai_error(exc)

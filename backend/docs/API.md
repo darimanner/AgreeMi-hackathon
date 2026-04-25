@@ -292,9 +292,9 @@ Slash-команды запускают AI-операции. Результат 
 
 ## Анализ `/chats/{chat_id}/analysis`
 
-### `POST /chats/{chat_id}/analysis/summary` — Краткое резюме анализа
+### `POST /chats/{chat_id}/analysis/summary` — TODO-список задач по анализу
 
-Генерирует краткое (3-5 предложений) резюме из **последней** версии анализа (`AnalysisVersion` с максимальным `version_number`). Никогда не использует кешированные или устаревшие данные.
+Генерирует короткий TODO-список (Markdown) из **последней** версии анализа (`AnalysisVersion` с максимальным `version_number`). Задачи отсортированы по критичности (critical → high → medium → low). Никогда не использует кешированные или устаревшие данные.
 
 Требует хотя бы одного предварительного вызова `/analyze`.
 
@@ -303,11 +303,13 @@ Slash-команды запускают AI-операции. Результат 
 **Ответ** `200 OK`
 ```json
 {
-  "summary": "The requirements document scores 82/100 and is generally well-structured. The most critical issue is the absence of a testing plan, which risks undetected integration failures. The single most important next step is to add acceptance criteria for each milestone before development begins.",
+  "summary": "## TODO\n\n- [ ] Добавить дедлайны для каждого этапа разработки\n- [ ] Уточнить критерии приёмки для модуля авторизации\n- [ ] Описать план тестирования (unit + integration)\n- [ ] Добавить NFR: требования к производительности и безопасности",
   "version": 2,
   "score": 82
 }
 ```
+
+> `summary` возвращается в формате Markdown и содержит 5-10 конкретных actionable задач.
 
 **Ошибки:**
 

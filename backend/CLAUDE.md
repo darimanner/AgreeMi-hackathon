@@ -133,7 +133,9 @@ Attachment
 - **AI errors**: always propagate through `_raise_for_ai_error()` in `clients/openai_client.py` — maps OpenRouter status codes to proper HTTP responses (401→502, 429→429, 5xx→503, timeout→504).
 - **AI JSON robustness**: `_extract_json()` strips markdown fences, `_sanitize_json()` escapes bare control chars, automatic retry with `_FIX_SYSTEM_PROMPT` at temperature=0.0, fallback `AnalysisResult` if both fail. Same pattern for diff.
 - **WebSocket**: in-memory `ConnectionManager` — works for single process only. Replace `broadcast()` with Redis Pub/Sub for multi-worker.
-- **AI model**: configured via `AI__MODEL` env var (default `openai/gpt-oss-120b:free`). `max_tokens=50_000` for analyze/diff, `max_tokens=300` for /update.
+- **AI model**: configured via `AI__MODEL` env var (default `openai/gpt-oss-120b:free`). `max_tokens=50_000` for analyze/diff, `max_tokens=500` for /summary, `max_tokens=300` for /update.
+- **Analysis versioning**: `/analyze` creates an `AnalysisVersion` record; `/diff` and `/summary` always fetch the latest by `version_number DESC` — never stale cache.
 - **CORS**: `CORSMiddleware` added in `main.py`. Default `allow_origins=["*"]`; override with `CORS__ORIGINS` env var.
 - **Participant check**: LEFT JOIN pattern in `_assert_participant` / `_get_participant_chat` — 1 DB round trip instead of 3.
+- **HTTPException propagation**: If an AI call raises `HTTPException` (429/503/504 from `_raise_for_ai_error`), re-raise it before catching generic `Exception`.
 - **MissingGreenlet fix**: use `attributes.set_committed_value(message, "attachments", [...])` instead of direct assignment after async commit.

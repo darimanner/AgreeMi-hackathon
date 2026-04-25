@@ -66,6 +66,8 @@ class DiffResult(BaseModel):
 class AnalysisSummaryResponse(BaseModel):
     """Response for POST /chats/{chat_id}/analysis/summary."""
 
-    summary: str
+    summary: str = Field(
+        ..., description="Markdown TODO list of actionable improvement tasks"
+    )
     version: int
     score: int
