@@ -5,7 +5,12 @@ from openai import APIConnectionError, APIStatusError, APITimeoutError, AsyncOpe
 
 from config import settings
 from core.logger import logger
-from schemas.analysis import AnalysisResult, DiffResult, FindingChange
+from schemas.analysis import (
+    AnalysisResult,
+    AnalysisSummaryResponse,
+    DiffResult,
+    FindingChange,
+)
 
 _client = AsyncOpenAI(
     api_key=settings.ai.api_key,
@@ -82,6 +87,15 @@ You are a project progress summarizer for a client-developer communication platf
 Given a list of recent chat messages, produce a concise 2-4 sentence summary
 describing the current project status and any key decisions or blockers mentioned.
 Be factual, neutral, and developer-friendly.
+"""
+
+_ANALYSIS_SUMMARY_PROMPT = """\
+You are a technical writer producing an executive summary of a requirements document analysis.
+
+Given the analysis score, findings, and review, produce a concise 3-5 sentence executive summary.
+Focus on: overall quality, the most critical issues, and the single most important next step.
+Write in plain language suitable for both developers and non-technical stakeholders.
+Return ONLY the summary text — no headers, no bullet points, no preamble.
 """
 
 _DIFF_SYSTEM_PROMPT = """\
@@ -520,4 +534,57 @@ async def diff_analyses(
         score_delta=v_new.score - v_old.score,
         summary="⚠️ Could not generate semantic diff. Compare the two analyses manually.",
         changes=[],
+    )
+
+
+async def summarize_analysis(
+    analysis: AnalysisResult, version: int
+) -> AnalysisSummaryResponse:
+    lines = [
+        f"Score: {analysis.score}/100",
+        "",
+        analysis.analysis_markdown,
+        "",
+        "Findings:",
+    ]
+    for f in analysis.findings:
+        lines.append(f"- [{f.severity.upper()}] {f.title}: {f.explanation}")
+    user_msg = "\n".join(lines)
+
+    logger.info(
+        "Generating analysis summary",
+        model=settings.ai.model,
+        version=version,
+        score=analysis.score,
+    )
+
+    try:
+        response = await _client.chat.completions.create(
+            model=settings.ai.model,
+            messages=[
+                {"role": "system", "content": _ANALYSIS_SUMMARY_PROMPT},
+                {"role": "user", "content": user_msg[:12_000]},
+            ],
+            temperature=0.3,
+            max_tokens=500,
+        )
+    except Exception as exc:
+        _raise_for_ai_error(exc)
+
+    summary_text = (response.choices[0].message.content or "").strip()
+    if not summary_text:
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            detail="AI returned an empty summary",
+        )
+
+    logger.info(
+        "Analysis summary generated",
+        version=version,
+        tokens_used=response.usage and response.usage.total_tokens,
+    )
+    return AnalysisSummaryResponse(
+        summary=summary_text,
+        version=version,
+        score=analysis.score,
     )

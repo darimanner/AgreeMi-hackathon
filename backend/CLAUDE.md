@@ -38,7 +38,7 @@ make requirements
 
 Copy `.env.example` to `.env`. All nested keys use `__` as delimiter:
 
-```
+```env
 PROJECT_NAME="reqlens"
 DEBUG=false
 
@@ -61,7 +61,7 @@ AI__MODEL=openai/gpt-oss-120b:free
 
 ## Architecture
 
-```
+```text
 src/
   main.py            — FastAPI app, lifespan (DB ping), CORSMiddleware, router registration
   config.py          — pydantic-settings; process exits on missing/invalid env vars
@@ -85,6 +85,7 @@ src/
     chat.py          — GET /chats, POST /chats, POST /chats/join/{invite_code}
     messages.py      — GET /chats/{id}/messages, POST /chats/{id}/messages
     commands.py      — POST /chats/{id}/commands (/update, /analyze, /diff)
+    analysis.py      — POST /chats/{id}/analysis/summary
     ws.py            — WS /ws/{chat_id}?token=
   schemas/
     auth.py          — RegisterRequest, LoginRequest, TokenResponse, UserOut
@@ -95,7 +96,7 @@ src/
 
 ## Data model
 
-```
+```text
 User (role: client | developer)
   ├─< Chat via chat_developers  — many developers per chat
   ├─< Chat via chat_clients     — many clients per chat (join via invite_code)

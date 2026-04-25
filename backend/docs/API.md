@@ -290,6 +290,38 @@ Slash-команды запускают AI-операции. Результат 
 
 ---
 
+## Анализ `/chats/{chat_id}/analysis`
+
+### `POST /chats/{chat_id}/analysis/summary` — Краткое резюме анализа
+
+Генерирует краткое (3-5 предложений) резюме из **последней** версии анализа (`AnalysisVersion` с максимальным `version_number`). Никогда не использует кешированные или устаревшие данные.
+
+Требует хотя бы одного предварительного вызова `/analyze`.
+
+**Тело запроса:** не требуется
+
+**Ответ** `200 OK`
+```json
+{
+  "summary": "The requirements document scores 82/100 and is generally well-structured. The most critical issue is the absence of a testing plan, which risks undetected integration failures. The single most important next step is to add acceptance criteria for each milestone before development begins.",
+  "version": 2,
+  "score": 82
+}
+```
+
+**Ошибки:**
+
+| Код | Причина |
+| --- | ------- |
+| `403` | Не участник чата |
+| `404` | Чат не найден или ни одного `/analyze` ещё не запускалось |
+| `429` | AI-сервис вернул rate limit |
+| `502` | AI-сервис вернул ошибку или пустой ответ |
+| `503` | AI-сервис недоступен |
+| `504` | AI-сервис не ответил вовремя |
+
+---
+
 ## WebSocket `/ws`
 
 ### `WS /ws/{chat_id}?token=<jwt>` — Подписка на чат

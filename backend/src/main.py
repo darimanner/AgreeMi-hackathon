@@ -8,6 +8,7 @@ from config import settings
 from core.database import engine
 from core.logger import logger, setup_logging
 from routes import (
+    analysis_router,
     auth_router,
     chat_router,
     commands_router,
@@ -76,6 +77,11 @@ app.include_router(messages_router, prefix="/chats", tags=["Messages"])
 # Slash commands
 # ------------------------------------------------------------------
 app.include_router(commands_router, prefix="/chats", tags=["Commands"])
+
+# ------------------------------------------------------------------
+# Analysis (summary, etc.)
+# ------------------------------------------------------------------
+app.include_router(analysis_router, prefix="/chats", tags=["Analysis"])
 
 # ------------------------------------------------------------------
 # WebSocket

@@ -99,6 +99,15 @@ async def _save_and_broadcast(
     "/{chat_id}/commands",
     response_model=CommandResponse,
     summary="Execute a slash command in a chat",
+    responses={
+        422: {
+            "description": "No messages / attachments / versions available for the command"
+        },
+        429: {"description": "AI service rate limit exceeded"},
+        502: {"description": "AI service error"},
+        503: {"description": "AI service unreachable"},
+        504: {"description": "AI service timed out"},
+    },
 )
 async def run_command(
     chat_id: uuid.UUID,
@@ -106,22 +115,19 @@ async def run_command(
     current_user: CurrentUser,
     session: DBSession,
 ) -> CommandResponse:
-    """Execute slash commands in the specified chat.
+    """Execute a slash command in the specified chat.
 
-    - **/update**: Summarises the last 20 messages and saves a ``system`` message.
-    - **/analyze**: Processes the most recent attachment through AI analysis,
-      stores structured result in ``chat.ai_analysis_json``, creates ``AnalysisVersion``, and saves an ``ai`` message.
-    - **/diff**: Semantically compares the two most recent analysis versions,
-      returns structured diff with score delta and finding changes, and saves an ``ai`` message.
+    Supported commands:
 
-    Args:
-        chat_id: UUID of the target chat.
-        payload: Command name (/update, /analyze, or /diff).
-        current_user: Authenticated user.
-        session: Async database session.
+    - **/update** — Summarises the 20 most recent messages and saves a `system` message.
+    - **/analyze** — Analyses the most recent file attachment with AI. Saves an `ai` message,
+      updates `Chat.ai_analysis_json`, and creates a new `AnalysisVersion` snapshot.
+      Response includes the full structured `analysis` object.
+    - **/diff** — Semantically compares the two most recent `AnalysisVersion` snapshots.
+      Saves an `ai` message. Response includes `diff` with `score_delta` and per-finding changes.
+      Requires at least 2 prior `/analyze` calls.
 
-    Returns:
-        CommandResponse with the AI-generated text, saved message, and optional analysis/diff.
+    All commands require the caller to be a participant (developer or client) of the chat.
     """
     chat = await _get_participant_chat(chat_id, current_user.id, session)
 
@@ -260,6 +266,8 @@ async def _run_diff(
         diff = await diff_analyses(
             a_old, a_new, v_old.version_number, v_new.version_number
         )
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.error("/diff AI call failed", chat_id=str(chat_id), error=str(exc))
         raise HTTPException(
@@ -283,7 +291,7 @@ async def _run_diff(
 
     result_text = (
         f"**Diff v{v_old.version_number} → v{v_new.version_number}** "
-        f"(score: {v_old.score} → {v_new.score}, {sign}{diff.score_delta})\n\n"
+        f"(score: {a_old.score} → {a_new.score}, {sign}{diff.score_delta})\n\n"
         f"{diff.summary}\n\n"
         f"{changes_text}"
     )

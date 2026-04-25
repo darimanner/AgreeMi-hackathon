@@ -61,3 +61,11 @@ class DiffResult(BaseModel):
         ..., description="2-4 sentences describing overall progress or regression"
     )
     changes: list[FindingChange] = Field(default_factory=list)
+
+
+class AnalysisSummaryResponse(BaseModel):
+    """Response for POST /chats/{chat_id}/analysis/summary."""
+
+    summary: str
+    version: int
+    score: int
