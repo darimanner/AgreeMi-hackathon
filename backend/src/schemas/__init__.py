@@ -1,4 +1,4 @@
-from .analysis import AnalysisIssue, AnalysisResult, IssueSeverity
+from .analysis import AnalysisResult, Finding, FindingSeverity
 from .auth import LoginRequest, RegisterRequest, TokenResponse, UserOut
 from .chat import ChatCreate, ChatListItem, ChatOut, JoinResponse
 from .message import (
@@ -12,9 +12,9 @@ from .message import (
 
 __all__ = [
     # analysis
-    "AnalysisIssue",
     "AnalysisResult",
-    "IssueSeverity",
+    "Finding",
+    "FindingSeverity",
     # auth
     "LoginRequest",
     "RegisterRequest",
