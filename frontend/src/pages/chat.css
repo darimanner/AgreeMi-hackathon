@@ -1092,3 +1092,87 @@
     min-height: 36px;
   }
 }
+
+/* ── AI Analysis Drawer ─────────────────────────────────────────────────── */
+.ai-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  z-index: 2000;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.ai-drawer {
+  width: 100%;
+  max-width: 500px;
+  height: 100%;
+  background: var(--bg-800);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.3);
+}
+
+.ai-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.ai-drawer-close {
+  background: none;
+  border: none;
+  color: var(--text-400);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+}
+
+.ai-drawer-close:hover {
+  background: var(--bg-600);
+  color: var(--text-100);
+}
+
+.ai-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.animate-drawer-in {
+  animation: drawer-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes drawer-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+/* Button in Navbar */
+.ai-analysis-btn {
+  color: var(--blue-400) !important;
+  border-color: rgba(96, 165, 250, 0.2) !important;
+}
+
+.ai-analysis-btn:hover {
+  background: var(--blue-glow-sm) !important;
+  border-color: var(--blue-400) !important;
+}
+
+@media (max-width: 600px) {
+  .ai-drawer {
+    max-width: 100%;
+  }
+}
+

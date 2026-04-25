@@ -182,6 +182,13 @@ export const createChatSlice: AppStoreSlice<ChatSlice> = (set, get) => ({
           : room
         ),
       });
+
+      // If the room has no aiAnalysis (e.g. on a fresh device with no localStorage),
+      // fetch the full chat list so the server's ai_analysis_json is pulled in.
+      const roomAfterLoad = get().chatRooms.find(room => room.id === chatId);
+      if (!roomAfterLoad?.aiAnalysis) {
+        await get().loadChats();
+      }
     } catch (error) {
       if (!isAbortError(error)) {
         finishRequest(key, signal);

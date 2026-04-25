@@ -4,14 +4,15 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
   ArrowLeft, Zap, Send, Paperclip, Bot, X,
-  ChevronRight, ChevronLeft, Loader2,
-  AlertTriangle, Info, AlertCircle,
-  UserPlus, Copy, Check, Lightbulb, GripVertical, Moon, Sun, Wifi, WifiOff
+  Loader2,
+  UserPlus, Copy, Check, Moon, Sun, Wifi, WifiOff
 } from 'lucide-react';
 import { useAppStore } from '../app/store';
 import { closeChatSocket, connectChatSocket, pingApiServer } from '../shared/api';
 import { getErrorMessage } from '../shared/api';
-import type { Message, Attachment, AiIssue } from '../shared/types';
+import type { Message, Attachment } from '../shared/types';
+import { AiAnalysisDrawer } from '../shared/components/AiAnalysisDrawer';
+import { AiAnalysisSidebar } from '../shared/components/AiAnalysisSidebar';
 import './chat.css';
 
 /* ── Helpers ────────────────────────────────────────────────────────────────── */
@@ -31,622 +32,6 @@ function shortId(value: string): string {
 
 type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'error' | 'closed';
 
-type DocumentBlock = {
-  id: string;
-  startLine: number;
-  endLine: number;
-  content: string;
-  kind: 'table' | 'kv-table' | 'req-table' | 'step-table' | 'text';
-  rows?: string[][];
-};
-
-function isMarkdownTableSeparator(line: string): boolean {
-  return /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(line);
-}
-
-function isMarkdownTableRow(line: string): boolean {
-  return line.includes('|') && line.trim().split('|').filter(cell => cell.trim()).length >= 2;
-}
-
-function parseMarkdownTableRow(line: string): string[] {
-  return line
-    .trim()
-    .replace(/^\|/, '')
-    .replace(/\|$/, '')
-    .split('|')
-    .map(cell => cell.trim());
-}
-
-function getSingleRowKvTable(block: DocumentBlock): string[] | null {
-  if (block.kind !== 'table') return null;
-  const rows = block.content
-    .split('\n')
-    .filter(line => isMarkdownTableRow(line) && !isMarkdownTableSeparator(line))
-    .map(parseMarkdownTableRow);
-
-  if (rows.length !== 1 || rows[0].length < 3 || rows[0].length > 4) return null;
-  return [...rows[0], '', '', '', ''].slice(0, 4);
-}
-
-function isTableContinuationText(block: DocumentBlock): boolean {
-  const value = block.content.trim();
-  if (!value) return false;
-  if (block.kind !== 'text') return false;
-  if (/^#{1,6}\s/.test(value)) return false;
-  if (/^\d+\.\s/.test(value)) return false;
-  if (/^[-*+]\s/.test(value)) return false;
-  return value.length <= 80;
-}
-
-function appendCellValue(value: string, extra: string): string {
-  return [value, extra].filter(Boolean).join(' ').trim();
-}
-
-function getTableRows(block: DocumentBlock): string[][] {
-  if (block.kind !== 'table') return [];
-  return block.content
-    .split('\n')
-    .filter(line => isMarkdownTableRow(line) && !isMarkdownTableSeparator(line))
-    .map(parseMarkdownTableRow);
-}
-
-function getNonEmptyCells(row: string[]): string[] {
-  return row.map(cell => cell.trim()).filter(Boolean);
-}
-
-function getRequirementHeader(block: DocumentBlock): string[] | null {
-  const rows = getTableRows(block);
-  if (rows.length !== 1) return null;
-
-  const cells = getNonEmptyCells(rows[0]);
-  const normalized = cells.join(' ').toLowerCase();
-  if (!normalized.includes('id') || !normalized.includes('user story') || !normalized.includes('acceptance')) {
-    return null;
-  }
-
-  return ['ID', 'User story', 'Acceptance criteria'];
-}
-
-function getStepHeader(block: DocumentBlock): string[] | null {
-  const rows = getTableRows(block);
-  if (rows.length !== 1) return null;
-
-  const cells = getNonEmptyCells(rows[0]);
-  const normalized = cells.join(' ').toLowerCase();
-  if (!normalized.includes('step') || !normalized.includes('name')) return null;
-  if (!normalized.includes('behaviour') && !normalized.includes('behavior')) return null;
-
-  return ['Step', 'Name', 'Behaviour & rules'];
-}
-
-function getContinuationCells(block: DocumentBlock): string[] {
-  const rows = getTableRows(block);
-  if (rows.length !== 1) return [];
-  return getNonEmptyCells(rows[0]);
-}
-
-function parseRequirementLine(value: string): string[] | null {
-  const match = value.trim().match(/^([A-Z]{2,}(?:-[A-Z]+)?\d{1,3})\s+(.+)$/);
-  if (!match) return null;
-  return [match[1], match[2], ''];
-}
-
-function parseStepLine(value: string): string[] | null {
-  const match = value.trim().match(/^(\d{1,2})\s+(.+)$/);
-  if (!match) return null;
-
-  const rest = match[2].trim();
-  const twoWordName = rest.match(/^(Cart review)\s+(.+)$/i);
-  if (twoWordName) return [match[1], twoWordName[1], twoWordName[2]];
-
-  const firstWord = rest.match(/^(\S+)\s+(.+)$/);
-  if (!firstWord) return [match[1], rest, ''];
-
-  return [match[1], firstWord[1], firstWord[2]];
-}
-
-function isSectionHeadingBlock(block: DocumentBlock): boolean {
-  if (block.kind !== 'text') return false;
-  return /^\s*\d+(?:\.\d+)*\s+/.test(block.content);
-}
-
-function repairRequirementTables(blocks: DocumentBlock[]): DocumentBlock[] {
-  const repaired: DocumentBlock[] = [];
-  let index = 0;
-
-  while (index < blocks.length) {
-    const header = getRequirementHeader(blocks[index]);
-    if (!header) {
-      repaired.push(blocks[index]);
-      index += 1;
-      continue;
-    }
-
-    const rows = [header];
-    const startLine = blocks[index].startLine;
-    let endLine = blocks[index].endLine;
-    let cursor = index + 1;
-    let currentRow: string[] | null = null;
-
-    while (cursor < blocks.length) {
-      const block = blocks[cursor];
-      if (isSectionHeadingBlock(block)) break;
-
-      if (block.kind === 'text') {
-        const parsed = parseRequirementLine(block.content);
-        if (parsed) {
-          if (currentRow) rows.push(currentRow);
-          currentRow = parsed;
-          endLine = block.endLine;
-          cursor += 1;
-          continue;
-        }
-
-        if (currentRow && isTableContinuationText(block)) {
-          currentRow[1] = appendCellValue(currentRow[1], block.content.trim());
-          endLine = block.endLine;
-          cursor += 1;
-          continue;
-        }
-
-        break;
-      }
-
-      const cells = getContinuationCells(block);
-      if (currentRow && cells.length > 0 && cells.length <= 3) {
-        if (cells[0]) currentRow[1] = appendCellValue(currentRow[1], cells[0]);
-        if (cells[1]) currentRow[2] = appendCellValue(currentRow[2], cells[1]);
-        if (cells[2]) currentRow[2] = appendCellValue(currentRow[2], cells[2]);
-        endLine = block.endLine;
-        cursor += 1;
-        continue;
-      }
-
-      break;
-    }
-
-    if (currentRow) rows.push(currentRow);
-
-    if (rows.length > 1) {
-      repaired.push({
-        id: `req-table-${startLine}`,
-        startLine,
-        endLine,
-        content: '',
-        kind: 'req-table',
-        rows,
-      });
-      index = cursor;
-      continue;
-    }
-
-    repaired.push(blocks[index]);
-    index += 1;
-  }
-
-  return repaired;
-}
-
-function repairStepTables(blocks: DocumentBlock[]): DocumentBlock[] {
-  const repaired: DocumentBlock[] = [];
-  let index = 0;
-
-  while (index < blocks.length) {
-    const header = getStepHeader(blocks[index]);
-    if (!header) {
-      repaired.push(blocks[index]);
-      index += 1;
-      continue;
-    }
-
-    const rows = [header];
-    const startLine = blocks[index].startLine;
-    let endLine = blocks[index].endLine;
-    let cursor = index + 1;
-    let currentRow: string[] | null = null;
-
-    while (cursor < blocks.length) {
-      const block = blocks[cursor];
-      if (isSectionHeadingBlock(block)) break;
-
-      if (block.kind === 'text') {
-        const parsed = parseStepLine(block.content);
-        if (parsed) {
-          if (currentRow) rows.push(currentRow);
-          currentRow = parsed;
-          endLine = block.endLine;
-          cursor += 1;
-          continue;
-        }
-
-        if (currentRow && isTableContinuationText(block)) {
-          currentRow[2] = appendCellValue(currentRow[2], block.content.trim());
-          endLine = block.endLine;
-          cursor += 1;
-          continue;
-        }
-
-        break;
-      }
-
-      const cells = getContinuationCells(block);
-      if (currentRow && cells.length > 0 && cells.length <= 3) {
-        if (cells[0]) currentRow[1] = appendCellValue(currentRow[1], cells[0]);
-        if (cells[1]) currentRow[2] = appendCellValue(currentRow[2], cells[1]);
-        if (cells[2]) currentRow[2] = appendCellValue(currentRow[2], cells[2]);
-        endLine = block.endLine;
-        cursor += 1;
-        continue;
-      }
-
-      break;
-    }
-
-    if (currentRow) rows.push(currentRow);
-
-    if (rows.length > 1) {
-      repaired.push({
-        id: `step-table-${startLine}`,
-        startLine,
-        endLine,
-        content: '',
-        kind: 'step-table',
-        rows,
-      });
-      index = cursor;
-      continue;
-    }
-
-    repaired.push(blocks[index]);
-    index += 1;
-  }
-
-  return repaired;
-}
-
-function repairDocumentBlocks(blocks: DocumentBlock[]): DocumentBlock[] {
-  const repaired: DocumentBlock[] = [];
-  let index = 0;
-
-  while (index < blocks.length) {
-    const firstRow = getSingleRowKvTable(blocks[index]);
-    if (!firstRow) {
-      repaired.push(blocks[index]);
-      index += 1;
-      continue;
-    }
-
-    const rows = [firstRow];
-    const startLine = blocks[index].startLine;
-    let endLine = blocks[index].endLine;
-    let cursor = index + 1;
-    let pendingText: string[] = [];
-
-    while (cursor < blocks.length) {
-      const row = getSingleRowKvTable(blocks[cursor]);
-
-      if (row) {
-        if (pendingText.length > 0) {
-          const pending = pendingText.join(' ');
-          if (!row[3]) {
-            row[3] = pending;
-          } else {
-            rows[rows.length - 1][3] = appendCellValue(rows[rows.length - 1][3], pending);
-          }
-          pendingText = [];
-        }
-
-        rows.push(row);
-        endLine = blocks[cursor].endLine;
-        cursor += 1;
-        continue;
-      }
-
-      if (isTableContinuationText(blocks[cursor])) {
-        pendingText.push(blocks[cursor].content.trim());
-        endLine = blocks[cursor].endLine;
-        cursor += 1;
-        continue;
-      }
-
-      break;
-    }
-
-    if (pendingText.length > 0) {
-      rows[rows.length - 1][3] = appendCellValue(rows[rows.length - 1][3], pendingText.join(' '));
-    }
-
-    if (rows.length > 1) {
-      repaired.push({
-        id: `kv-table-${startLine}`,
-        startLine,
-        endLine,
-        content: '',
-        kind: 'kv-table',
-        rows,
-      });
-      index = cursor;
-      continue;
-    }
-
-    repaired.push(blocks[index]);
-    index += 1;
-  }
-
-  return repairStepTables(repairRequirementTables(repaired));
-}
-
-function createDocumentBlocks(markdown: string): DocumentBlock[] {
-  const lines = markdown.split('\n');
-  const blocks: DocumentBlock[] = [];
-  let index = 0;
-
-  while (index < lines.length) {
-    const line = lines[index];
-    const nextLine = lines[index + 1] ?? '';
-
-    if (isMarkdownTableRow(line) && isMarkdownTableSeparator(nextLine)) {
-      const start = index;
-      index += 2;
-      while (index < lines.length && isMarkdownTableRow(lines[index])) {
-        index += 1;
-      }
-
-      blocks.push({
-        id: `table-${start + 1}`,
-        startLine: start + 1,
-        endLine: index,
-        content: lines.slice(start, index).join('\n'),
-        kind: 'table',
-      });
-      continue;
-    }
-
-    blocks.push({
-      id: `line-${index + 1}`,
-      startLine: index + 1,
-      endLine: index + 1,
-      content: line,
-      kind: 'text',
-    });
-    index += 1;
-  }
-
-  return repairDocumentBlocks(blocks);
-}
-
-function getIssueForBlock(block: DocumentBlock, issues: AiIssue[]): AiIssue | undefined {
-  return issues.find(issue => {
-    if (!issue.startLine) return false;
-    const issueEndLine = issue.endLine ?? issue.startLine;
-    return issue.startLine <= block.endLine && issueEndLine >= block.startLine;
-  });
-}
-
-function isIssuePopoverAnchor(block: DocumentBlock, issue: AiIssue): boolean {
-  if (!issue.startLine) return false;
-  return issue.startLine >= block.startLine && issue.startLine <= block.endLine;
-}
-
-/* ── AI Sidebar ─────────────────────────────────────────────────────────────── */
-const AiSidebar: React.FC<{ chatId: string }> = ({ chatId }) => {
-  const chatRooms    = useAppStore(s => s.chatRooms);
-  const isSidebarOpen = useAppStore(s => s.isSidebarOpen);
-  const toggleSidebar = useAppStore(s => s.toggleSidebar);
-  const [sidebarWidth, setSidebarWidth] = useState(360);
-
-  const room = chatRooms.find(r => r.id === chatId);
-  const analysis = room?.aiAnalysis;
-  const issues = analysis?.issues ?? [];
-  const documentMarkdown = analysis?.documentMarkdown;
-  const documentBlocks = documentMarkdown ? createDocumentBlocks(documentMarkdown) : [];
-
-  const handleResizeStart = (event: React.PointerEvent<HTMLButtonElement>) => {
-    event.preventDefault();
-    const startX = event.clientX;
-    const startWidth = sidebarWidth;
-
-    const handleResizeMove = (moveEvent: PointerEvent) => {
-      const maxWidth = Math.min(window.innerWidth - 360, 640);
-      const nextWidth = Math.min(Math.max(startWidth - (moveEvent.clientX - startX), 280), Math.max(320, maxWidth));
-      setSidebarWidth(nextWidth);
-    };
-
-    const handleResizeEnd = () => {
-      window.removeEventListener('pointermove', handleResizeMove);
-      window.removeEventListener('pointerup', handleResizeEnd);
-    };
-
-    window.addEventListener('pointermove', handleResizeMove);
-    window.addEventListener('pointerup', handleResizeEnd, { once: true });
-  };
-
-  const iconFor = (sev: string) => {
-    if (sev === 'critical' || sev === 'high') return <AlertTriangle size={13} />;
-    if (sev === 'medium') return <AlertCircle size={13} />;
-    return <Info size={13} />;
-  };
-  const classFor = (sev: string) => {
-    if (sev === 'critical' || sev === 'high') return 'badge-red';
-    if (sev === 'medium') return 'badge-yellow';
-    return 'badge-blue';
-  };
-
-  return (
-    <aside
-      className={`ai-sidebar ${isSidebarOpen ? 'open' : 'closed'}`}
-      style={{ '--sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}
-    >
-      <button
-        className="sidebar-resize-handle"
-        onPointerDown={handleResizeStart}
-        title="Resize analysis panel"
-      >
-        <GripVertical size={14} />
-      </button>
-      {/* Toggle tab */}
-      <button className="sidebar-toggle-tab" onClick={toggleSidebar}>
-        {isSidebarOpen ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-      </button>
-
-      <div className="sidebar-content">
-        {/* Header */}
-        <div className="sidebar-header">
-          <div className="flex items-center gap-2">
-            <div className="sidebar-ai-icon"><Bot size={15} /></div>
-            <div>
-              <div className="sidebar-title">AI Analysis</div>
-              <div className="text-xs text-muted">Powered by GPT-4o</div>
-            </div>
-          </div>
-        </div>
-
-        {!analysis ? (
-          <div className="sidebar-empty">
-            <Paperclip size={32} />
-            <p>Attach a spec or document to get AI analysis</p>
-            <p className="text-xs text-muted">Supported: PDF, DOCX, TXT</p>
-          </div>
-        ) : (
-          <>
-            {typeof analysis.score === 'number' && (
-              <div className="sidebar-score-card">
-                <div className="sidebar-score-ring">
-                  <svg viewBox="0 0 80 80">
-                    <circle cx="40" cy="40" r="34" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="7" />
-                    <circle
-                      cx="40" cy="40" r="34"
-                      fill="none"
-                      stroke={analysis.score > 70 ? 'var(--lime-400)' : analysis.score > 40 ? 'var(--yellow-400)' : 'var(--red-400)'}
-                      strokeWidth="7"
-                      strokeLinecap="round"
-                      strokeDasharray={`${(analysis.score / 100) * 213.6} 213.6`}
-                      transform="rotate(-90 40 40)"
-                    />
-                  </svg>
-                  <span className="sidebar-score-val">{analysis.score}</span>
-                </div>
-                <div>
-                  <div className="sidebar-score-label">Quality Score</div>
-                  <div className="text-sm text-muted">{analysis.summary.slice(0, 60)}…</div>
-                </div>
-              </div>
-            )}
-
-            {documentBlocks.length > 0 && (
-              <div className="sidebar-section">
-                <div className="sidebar-section-title">Reviewed Document</div>
-                <div className="sidebar-document">
-                  {documentBlocks.map((block) => {
-                    const issue = getIssueForBlock(block, issues);
-                    const showPopover = issue ? isIssuePopoverAnchor(block, issue) : false;
-                    const popoverIssue = showPopover ? issue : undefined;
-                    const lineLabel = block.startLine === block.endLine
-                      ? block.startLine
-                      : `${block.startLine}-${block.endLine}`;
-                    return (
-                      <div
-                        key={block.id}
-                        className={`document-block document-block--${block.kind} ${issue ? `document-line--${issue.severity}` : ''}`}
-                        title={issue ? `${issue.severity}: ${issue.title}` : undefined}
-                        tabIndex={issue ? 0 : undefined}
-                      >
-                        <span className="document-line-number">{lineLabel}</span>
-                        <div className="document-block-content">
-                          {block.kind === 'kv-table' ? (
-                            <table className="document-kv-table">
-                              <tbody>
-                                {block.rows?.map((row, rowIndex) => (
-                                  <tr key={`${block.id}-row-${rowIndex}`}>
-                                    {row.map((cell, cellIndex) => (
-                                      <td
-                                        key={`${block.id}-cell-${rowIndex}-${cellIndex}`}
-                                        className={cellIndex % 2 === 0 ? 'document-kv-label' : undefined}
-                                      >
-                                        {cell || <span>&nbsp;</span>}
-                                      </td>
-                                    ))}
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          ) : block.kind === 'req-table' ? (
-                            <table className="document-req-table">
-                              <thead>
-                                <tr>
-                                  {block.rows?.[0]?.map((cell, cellIndex) => (
-                                    <th key={`${block.id}-head-${cellIndex}`}>{cell}</th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {block.rows?.slice(1).map((row, rowIndex) => (
-                                  <tr key={`${block.id}-row-${rowIndex}`}>
-                                    {row.map((cell, cellIndex) => (
-                                      <td key={`${block.id}-cell-${rowIndex}-${cellIndex}`}>
-                                        {cell || <span>&nbsp;</span>}
-                                      </td>
-                                    ))}
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          ) : block.kind === 'step-table' ? (
-                            <table className="document-step-table">
-                              <thead>
-                                <tr>
-                                  {block.rows?.[0]?.map((cell, cellIndex) => (
-                                    <th key={`${block.id}-head-${cellIndex}`}>{cell}</th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {block.rows?.slice(1).map((row, rowIndex) => (
-                                  <tr key={`${block.id}-row-${rowIndex}`}>
-                                    {row.map((cell, cellIndex) => (
-                                      <td key={`${block.id}-cell-${rowIndex}-${cellIndex}`}>
-                                        {cell || <span>&nbsp;</span>}
-                                      </td>
-                                    ))}
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          ) : block.content.trim()
-                            ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{block.content}</ReactMarkdown>
-                            : <span>&nbsp;</span>}
-                        </div>
-                        {popoverIssue && (
-                          <div className={`document-popover document-popover--${popoverIssue.severity}`}>
-                            <div className={`badge ${classFor(popoverIssue.severity)} document-popover-badge`}>
-                              {iconFor(popoverIssue.severity)}
-                              {popoverIssue.severity}
-                            </div>
-                            <div className="document-popover-title">{popoverIssue.title}</div>
-                            <div className="document-popover-desc">{popoverIssue.description}</div>
-                            {popoverIssue.quote && (
-                              <div className="document-popover-quote">“{popoverIssue.quote}”</div>
-                            )}
-                            {popoverIssue.suggestion && (
-                              <div className="document-popover-tip">
-                                <Lightbulb size={12} />
-                                <span>{popoverIssue.suggestion}</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    </aside>
-  );
-};
 
 /* ── Main chat page ──────────────────────────────────────────────────────────── */
 export const ChatPage: React.FC = () => {
@@ -665,6 +50,7 @@ export const ChatPage: React.FC = () => {
   const receiveMessage = useAppStore(s => s.receiveMessage);
   const sendMessage  = useAppStore(s => s.sendMessage);
   const runCommand   = useAppStore(s => s.runCommand);
+  const toggleSidebar = useAppStore(s => s.toggleSidebar);
 
   const room = chatRooms.find(r => r.id === chatId);
 
@@ -675,6 +61,7 @@ export const ChatPage: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const [showInvite, setShowInvite] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [sendError, setSendError] = useState('');
   const [connection, setConnection] = useState<{ status: ConnectionStatus; rttMs?: number }>({ status: 'idle' });
@@ -954,6 +341,20 @@ export const ChatPage: React.FC = () => {
             {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
           </button>
           <button
+            className="btn btn-ghost ai-analysis-btn"
+            onClick={() => {
+              if (window.innerWidth > 1024) {
+                toggleSidebar();
+              } else {
+                setIsDrawerOpen(true);
+              }
+            }}
+            title="AI Analysis"
+          >
+            <Bot size={15} />
+            {room.aiAnalysis ? 'Analysis' : 'AI'}
+          </button>
+          <button
             className="btn btn-ghost invite-btn"
             onClick={() => setShowInvite(v => !v)}
             title="Invite collaborator"
@@ -1169,9 +570,16 @@ export const ChatPage: React.FC = () => {
           </div>
         </div>
 
-        {/* AI Sidebar */}
-        <AiSidebar chatId={chatId!} />
+        {/* AI Sidebar (Desktop) */}
+        <AiAnalysisSidebar chatId={chatId!} />
       </div>
+
+      {/* AI Analysis drawer (Mobile) */}
+      <AiAnalysisDrawer
+        chatId={chatId!}
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+      />
     </div>
   );
 };
