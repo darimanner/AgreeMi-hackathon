@@ -11,6 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .base import Base, TimestampMixin
 
 if TYPE_CHECKING:
+    from .analysis_version import AnalysisVersion
     from .file import Attachment
     from .message import Message
     from .user import User
@@ -67,6 +68,12 @@ class Chat(Base, TimestampMixin):
         "Attachment",
         back_populates="chat",
         cascade="all, delete-orphan",
+    )
+    analysis_versions: Mapped[list[AnalysisVersion]] = relationship(
+        "AnalysisVersion",
+        back_populates="chat",
+        cascade="all, delete-orphan",
+        order_by="AnalysisVersion.version_number",
     )
 
     @property

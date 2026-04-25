@@ -5,7 +5,7 @@ import uuid
 from pydantic import BaseModel, Field
 
 from models.message import MessageRole
-from schemas.analysis import AnalysisResult
+from schemas.analysis import AnalysisResult, DiffResult
 
 
 class AttachmentOut(BaseModel):
@@ -54,6 +54,7 @@ class CommandName(StrEnum):
 
     UPDATE = "/update"
     ANALYZE = "/analyze"
+    DIFF = "/diff"
 
 
 class CommandRequest(BaseModel):
@@ -69,3 +70,4 @@ class CommandResponse(BaseModel):
     result: str
     message: MessageOut
     analysis: AnalysisResult | None = None
+    diff: DiffResult | None = None

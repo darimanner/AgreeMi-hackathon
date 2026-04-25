@@ -1,17 +1,19 @@
 import uuid
 
 from fastapi import APIRouter, HTTPException, status
-from sqlalchemy import and_, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.orm import selectinload
 
-from clients.openai_client import analyze_document, summarize_messages
+from clients.openai_client import analyze_document, diff_analyses, summarize_messages
 from config import settings
 from core.logger import logger
 from core.ws_manager import manager
 from deps import CurrentUser, DBSession
+from models.analysis_version import AnalysisVersion
 from models.chat import Chat, chat_clients, chat_developers
 from models.file import Attachment
 from models.message import Message, MessageRole
+from schemas.analysis import AnalysisResult
 from schemas.message import CommandName, CommandRequest, CommandResponse, MessageOut
 
 router = APIRouter()
@@ -104,20 +106,22 @@ async def run_command(
     current_user: CurrentUser,
     session: DBSession,
 ) -> CommandResponse:
-    """Execute */update* or */analyze* in the specified chat.
+    """Execute slash commands in the specified chat.
 
     - **/update**: Summarises the last 20 messages and saves a ``system`` message.
-    - **/analyze**: Processes the most recent attachment in the chat through GPT-4o,
-      stores the structured result in ``chat.ai_analysis_json``, and saves an ``ai`` message.
+    - **/analyze**: Processes the most recent attachment through AI analysis,
+      stores structured result in ``chat.ai_analysis_json``, creates ``AnalysisVersion``, and saves an ``ai`` message.
+    - **/diff**: Semantically compares the two most recent analysis versions,
+      returns structured diff with score delta and finding changes, and saves an ``ai`` message.
 
     Args:
         chat_id: UUID of the target chat.
-        payload: Command name.
+        payload: Command name (/update, /analyze, or /diff).
         current_user: Authenticated user.
         session: Async database session.
 
     Returns:
-        CommandResponse with the AI-generated text and the saved message.
+        CommandResponse with the AI-generated text, saved message, and optional analysis/diff.
     """
     chat = await _get_participant_chat(chat_id, current_user.id, session)
 
@@ -152,6 +156,9 @@ async def run_command(
             message=MessageOut.model_validate(msg),
         )
 
+    if payload.command == CommandName.DIFF:
+        return await _run_diff(chat_id, payload.command, session)
+
     # CommandName.ANALYZE
     att_result = await session.execute(
         select(Attachment)
@@ -181,9 +188,20 @@ async def run_command(
             status_code=status.HTTP_502_BAD_GATEWAY, detail="AI analysis failed"
         ) from exc
 
+    version_count = await session.scalar(
+        select(func.count()).where(AnalysisVersion.chat_id == chat_id)
+    )
     chat.ai_analysis_json = analysis.model_dump()
     attachment.ai_analysis = analysis.analysis_markdown
     attachment.model_used = settings.ai.model
+    session.add(
+        AnalysisVersion(
+            chat_id=chat_id,
+            attachment_id=attachment.id,
+            version_number=(version_count or 0) + 1,
+            analysis_json=analysis.model_dump(),
+        )
+    )
     await session.commit()
 
     result_text = (
@@ -212,4 +230,77 @@ async def run_command(
         result=result_text,
         message=MessageOut.model_validate(msg),
         analysis=analysis,
+    )
+
+
+async def _run_diff(
+    chat_id: uuid.UUID,
+    command: CommandName,
+    session: DBSession,
+) -> CommandResponse:
+    versions_result = await session.execute(
+        select(AnalysisVersion)
+        .where(AnalysisVersion.chat_id == chat_id)
+        .order_by(AnalysisVersion.version_number.desc())
+        .limit(2)
+    )
+    versions = versions_result.scalars().all()
+
+    if len(versions) < 2:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Need at least 2 analysis versions to diff (found {len(versions)})",
+        )
+
+    v_new, v_old = versions[0], versions[1]
+    a_old = AnalysisResult.model_validate(v_old.analysis_json)
+    a_new = AnalysisResult.model_validate(v_new.analysis_json)
+
+    try:
+        diff = await diff_analyses(
+            a_old, a_new, v_old.version_number, v_new.version_number
+        )
+    except Exception as exc:
+        logger.error("/diff AI call failed", chat_id=str(chat_id), error=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail="AI diff failed"
+        ) from exc
+
+    sign = "+" if diff.score_delta >= 0 else ""
+    changes_text = (
+        "\n".join(
+            f"- [{c.change.upper()}] **{c.title}**"
+            + (
+                f" ({c.old_severity} → {c.new_severity})"
+                if c.old_severity and c.new_severity
+                else ""
+            )
+            + f": {c.explanation}"
+            for c in diff.changes
+        )
+        or "_No significant changes detected._"
+    )
+
+    result_text = (
+        f"**Diff v{v_old.version_number} → v{v_new.version_number}** "
+        f"(score: {v_old.score} → {v_new.score}, {sign}{diff.score_delta})\n\n"
+        f"{diff.summary}\n\n"
+        f"{changes_text}"
+    )
+
+    msg = await _save_and_broadcast(chat_id, MessageRole.AI, result_text, session)
+
+    logger.info(
+        "/diff complete",
+        chat_id=str(chat_id),
+        old_version=v_old.version_number,
+        new_version=v_new.version_number,
+        score_delta=diff.score_delta,
+        changes=len(diff.changes),
+    )
+    return CommandResponse(
+        command=command,
+        result=result_text,
+        message=MessageOut.model_validate(msg),
+        diff=diff,
     )

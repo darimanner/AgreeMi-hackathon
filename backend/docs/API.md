@@ -68,13 +68,13 @@ Authorization: Bearer <access_token>
 }
 ```
 
-**Ошибки:** `401` — неверный email или пароль (один и тот же текст для обоих случаев — защита от user enumeration)
+**Ошибки:** `401` — неверный email или пароль
 
 ---
 
 ## Чаты `/chats`
 
-Чат создаёт **developer**. **Client** присоединяется по `invite_code`.
+Чат создаёт **developer**. **Client** присоединяется по `invite_code`. Один чат поддерживает **нескольких** developers и **нескольких** clients.
 
 ### `GET /chats` — Список чатов
 
@@ -98,7 +98,7 @@ Authorization: Bearer <access_token>
 
 ### `POST /chats` — Создать чат
 
-Создаёт новую комнату. Текущий пользователь становится **developer**. `invite_code` генерируется автоматически (URL-safe, 11 символов).
+Создаёт новую комнату. Текущий пользователь становится первым **developer**. `invite_code` генерируется автоматически (URL-safe, 11 символов).
 
 **Тело запроса** `application/json`
 ```json
@@ -106,10 +106,6 @@ Authorization: Bearer <access_token>
   "title": "Договор на разработку"
 }
 ```
-
-| Поле | Тип | Обязательно | Описание |
-|------|-----|:-----------:|---------|
-| `title` | string | — | Название чата (до 255 символов) |
 
 **Ответ** `201 Created`
 ```json
@@ -129,32 +125,19 @@ Authorization: Bearer <access_token>
 
 ### `POST /chats/join/{invite_code}` — Вступить в чат
 
-Привязывает текущего пользователя как **client** к чату по invite-коду. Один чат — один клиент.
-
-**Path params:** `invite_code` — строка из ссылки-приглашения
-
-**Тело запроса:** не требуется
+Привязывает текущего пользователя как **client** к чату по invite-коду.
 
 **Ответ** `200 OK`
 ```json
 {
-  "chat": {
-    "id": "uuid",
-    "title": "...",
-    "invite_code": "xK2mN_abc",
-    "developer_ids": ["uuid"],
-    "client_ids": ["uuid"],
-    "ai_analysis_json": null,
-    "created_at": "2026-04-25T10:00:00Z",
-    "updated_at": "2026-04-25T10:00:00Z"
-  },
+  "chat": { "...": "ChatOut" },
   "message": "Joined successfully"
 }
 ```
 
 **Ошибки:**
 - `404` — чат не найден
-- `409` — нельзя вступить в чат, где ты developer, или уже состоишь как client
+- `409` — уже состоишь в чате как developer или client
 
 ---
 
@@ -163,8 +146,6 @@ Authorization: Bearer <access_token>
 Доступны только участникам чата (developer или client).
 
 ### `GET /chats/{chat_id}/messages` — История сообщений
-
-Возвращает сообщения в хронологическом порядке с пагинацией.
 
 **Query params:**
 
@@ -194,15 +175,11 @@ Authorization: Bearer <access_token>
 ]
 ```
 
-> `author_id: null` + `role: "ai"` или `"system"` — машинно-сгенерированное сообщение (команда или AI).
-
-**Ошибки:** `403` — не участник чата, `404` — чат не найден
+> `author_id: null` + `role: "ai"` или `"system"` — машинно-сгенерированное сообщение.
 
 ---
 
 ### `POST /chats/{chat_id}/messages` — Отправить сообщение
-
-Сохраняет сообщение и рассылает его всем WebSocket-подписчикам чата в реальном времени. Если прикреплён файл — текст извлекается через **markitdown** и сохраняется в `Attachment`.
 
 **Тело запроса** `multipart/form-data`
 
@@ -211,48 +188,30 @@ Authorization: Bearer <access_token>
 | `content` | string | ✓ | Текст сообщения (минимум 1 символ) |
 | `file` | file | — | Любой файл (PDF, DOCX, TXT и др.) |
 
-**Ответ** `201 Created`
-```json
-{
-  "id": "uuid",
-  "chat_id": "uuid",
-  "author_id": "uuid",
-  "role": "client",
-  "content": "Смотрите прикреплённый документ",
-  "timestamp": "2026-04-25T10:10:00Z",
-  "attachments": [
-    {
-      "id": "uuid",
-      "filename": "contract.pdf",
-      "content_type": "application/pdf"
-    }
-  ]
-}
-```
-
-**Ошибки:** `403` — не участник чата, `404` — чат не найден
+**Ответ** `201 Created` — `MessageOut`
 
 ---
 
 ## Команды `/chats/{chat_id}/commands`
 
-Slash-команды запускают AI-операции над контентом чата. Результат сохраняется как сообщение и рассылается по WebSocket.
+Slash-команды запускают AI-операции. Результат сохраняется как сообщение и рассылается по WebSocket.
 
 ### `POST /chats/{chat_id}/commands` — Выполнить команду
 
 **Тело запроса** `application/json`
 ```json
-{
-  "command": "/update"
-}
+{ "command": "/analyze" }
 ```
 
-| Значение | Описание |
+| Команда | Описание |
 |---------|---------|
-| `/update` | Суммаризирует последние 20 сообщений → сохраняет сообщение с `role: "system"` |
-| `/analyze` | Анализирует последний прикреплённый файл (по `chat_id`) → сохраняет сообщение с `role: "ai"` и обновляет `Chat.ai_analysis_json` |
+| `/update` | Суммаризирует последние 20 сообщений → сохраняет `role: "system"` сообщение |
+| `/analyze` | Анализирует последний прикреплённый файл → сохраняет `role: "ai"` сообщение, обновляет `Chat.ai_analysis_json`, создаёт новую `AnalysisVersion` |
+| `/diff` | Семантически сравнивает две последние версии анализа → сохраняет `role: "ai"` сообщение |
 
-**Ответ** `200 OK`
+---
+
+**Ответ `/analyze`** `200 OK`
 ```json
 {
   "command": "/analyze",
@@ -274,42 +233,58 @@ Slash-команды запускают AI-операции над контен�
         "end_line": 14
       }
     ]
-  }
+  },
+  "diff": null
 }
 ```
 
-**Структура `Chat.ai_analysis_json`** (обновляется после `/analyze`):
+**Ответ `/diff`** `200 OK`
 ```json
 {
-  "score": 82,
-  "document_markdown": "# Техническое задание\n\n...",
-  "analysis_markdown": "## Резюме\n\nДокумент содержит...\n\n## Риски\n...",
-  "findings": [
-    {
-      "id": "FINDING-1",
-      "severity": "high",
-      "title": "Отсутствие сроков",
-      "explanation": "В ТЗ не указаны сроки выполнения этапов",
-      "recommendation": "Добавить дедлайны для каждого milestone",
-      "quote": "Исполнитель разрабатывает модуль авторизации.",
-      "start_line": 12,
-      "end_line": 14
-    }
-  ]
+  "command": "/diff",
+  "result": "**Diff v1 → v2** (score: 60 → 82, +22)\n\n...",
+  "message": { "...": "MessageOut" },
+  "analysis": null,
+  "diff": {
+    "old_version": 1,
+    "new_version": 2,
+    "old_score": 60,
+    "new_score": 82,
+    "score_delta": 22,
+    "summary": "Документ значительно улучшился: добавлены сроки и критерии приёмки.",
+    "changes": [
+      {
+        "change": "removed",
+        "title": "Отсутствие сроков",
+        "old_severity": "high",
+        "new_severity": null,
+        "explanation": "Дедлайны для всех этапов теперь указаны явно."
+      },
+      {
+        "change": "added",
+        "title": "Нет плана тестирования",
+        "old_severity": null,
+        "new_severity": "medium",
+        "explanation": "Новая версия документа упоминает тестирование, но без конкретных сценариев."
+      }
+    ]
+  }
 }
 ```
 
 `severity`: `critical` | `high` | `medium` | `low` | `info`
 
-**Ошибки:**
+`change`: `added` | `removed` | `worsened` | `improved` | `severity_changed` | `unchanged`
+
+**Ошибки команд:**
 
 | Код | Причина |
 | --- | ------- |
 | `403` | Не участник чата |
 | `404` | Чат не найден |
-| `422` | Нет сообщений для `/update` или нет файлов для `/analyze` |
-| `429` | AI-сервис вернул rate limit — повторите позже |
-| `502` | AI-сервис вернул ошибку (неверный API-ключ, невалидный запрос) |
+| `422` | Нет сообщений для `/update`; нет файлов для `/analyze`; меньше 2 версий для `/diff` |
+| `429` | AI-сервис вернул rate limit |
+| `502` | AI-сервис вернул ошибку |
 | `503` | AI-сервис недоступен |
 | `504` | AI-сервис не ответил вовремя |
 
@@ -319,32 +294,21 @@ Slash-команды запускают AI-операции над контен�
 
 ### `WS /ws/{chat_id}?token=<jwt>` — Подписка на чат
 
-Открывает persistent-соединение для получения новых сообщений в реальном времени. JWT передаётся query-параметром, так как браузерный WebSocket API не поддерживает кастомные заголовки.
-
-**Query params:** `token` — JWT access token
-
 **Поведение:**
-- Сервер **push**'ит событие при каждом вызове `POST /chats/{chat_id}/messages` и при выполнении команды
-- Клиент может отправлять любые фреймы (ping и т.п.) — сервер их дренирует, но не обрабатывает
-- При невалидном или просроченном токене соединение закрывается с кодом `4001`
-- Реализация in-memory — работает корректно при одном процессе (одном worker'е)
+- Сервер push'ит событие при каждом `POST /messages` и при выполнении любой команды
+- При невалидном токене соединение закрывается с кодом `4001`
+- In-memory реализация — работает при одном процессе (одном worker'е)
 
-**Формат входящего события** (JSON):
+**Формат события** (JSON) — `MessageOut`:
 ```json
 {
   "id": "uuid",
   "chat_id": "uuid",
   "author_id": "uuid | null",
   "role": "developer | client | ai | system",
-  "content": "текст сообщения",
+  "content": "текст",
   "timestamp": "2026-04-25T10:15:00Z",
-  "attachments": [
-    {
-      "id": "uuid",
-      "filename": "file.pdf",
-      "content_type": "application/pdf"
-    }
-  ]
+  "attachments": []
 }
 ```
 
@@ -354,23 +318,18 @@ Slash-команды запускают AI-операции над контен�
 
 | Действие | `developer` | `client` |
 | -------- | :---------: | :------: |
-| Создать чат (становится одним из developers) | ✓ | — |
-| Вступить по invite_code (добавляется в clients) | — | ✓ |
+| Создать чат | ✓ | — |
+| Вступить по invite_code | — | ✓ |
 | Отправлять сообщения | ✓ | ✓ |
-| Выполнять команды `/update`, `/analyze` | ✓ | ✓ |
+| Выполнять `/update`, `/analyze`, `/diff` | ✓ | ✓ |
 | Подключиться к WebSocket | ✓ | ✓ |
-
-> Чат поддерживает нескольких developers и нескольких clients. Участие определяется по membership в таблицах `chat_developers` / `chat_clients`.
 
 ---
 
-## Коды ошибок AI-сервиса
+## CORS
 
-Все endpoints, вызывающие AI (`/commands`), используют единый маппинг ошибок:
+По умолчанию разрешены все origins (`*`). Для ограничения задай переменную окружения:
 
-| HTTP | Значение |
-| ---- | -------- |
-| `429` | Rate limit на стороне OpenRouter — повторите запрос |
-| `502` | Ошибка конфигурации или невалидный запрос к AI |
-| `503` | AI-сервис временно недоступен |
-| `504` | AI-сервис не ответил в отведённое время |
+```
+CORS__ORIGINS=["http://localhost:3000","http://localhost:5173"]
+```

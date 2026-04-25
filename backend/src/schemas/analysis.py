@@ -1,4 +1,5 @@
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -33,3 +34,30 @@ class AnalysisResult(BaseModel):
         ..., description="Human-readable review with summary and risks"
     )
     findings: list[Finding] = Field(default_factory=list)
+
+
+FindingChangeType = Literal[
+    "added", "removed", "severity_changed", "worsened", "improved", "unchanged"
+]
+
+
+class FindingChange(BaseModel):
+    change: FindingChangeType
+    title: str
+    old_severity: FindingSeverity | None = None
+    new_severity: FindingSeverity | None = None
+    explanation: str = Field(..., description="What changed and why it matters")
+
+
+class DiffResult(BaseModel):
+    """Structured output for /diff command."""
+
+    old_version: int
+    new_version: int
+    old_score: int
+    new_score: int
+    score_delta: int = Field(..., description="new_score - old_score (signed)")
+    summary: str = Field(
+        ..., description="2-4 sentences describing overall progress or regression"
+    )
+    changes: list[FindingChange] = Field(default_factory=list)

@@ -5,7 +5,7 @@ from openai import APIConnectionError, APIStatusError, APITimeoutError, AsyncOpe
 
 from config import settings
 from core.logger import logger
-from schemas.analysis import AnalysisResult
+from schemas.analysis import AnalysisResult, DiffResult, FindingChange
 
 _client = AsyncOpenAI(
     api_key=settings.ai.api_key,
@@ -84,6 +84,38 @@ describing the current project status and any key decisions or blockers mentione
 Be factual, neutral, and developer-friendly.
 """
 
+_DIFF_SYSTEM_PROMPT = """\
+You are a senior technical analyst comparing two versions of a requirements document analysis.
+
+You will receive two analyses: VERSION A (older) and VERSION B (newer).
+Each contains a score (0-100), a markdown review, and a list of findings.
+
+Return ONLY valid JSON with this shape:
+
+{
+  "summary": string,
+  "changes": [
+    {
+      "change": "added" | "removed" | "severity_changed" | "worsened" | "improved" | "unchanged",
+      "title": string,
+      "old_severity": "critical" | "high" | "medium" | "low" | "info" | null,
+      "new_severity": "critical" | "high" | "medium" | "low" | "info" | null,
+      "explanation": string
+    }
+  ]
+}
+
+Rules:
+- summary: 2-4 sentences describing overall progress or regression between the two versions. Mention the score change.
+- changes: list every finding that was added, removed, or changed severity between the two versions. Skip truly unchanged findings.
+- "worsened" means severity increased (e.g. low → high). "improved" means severity decreased (e.g. critical → medium).
+- "severity_changed" is only for lateral changes (e.g. medium → low is "improved", not "severity_changed").
+- old_severity is null for "added" findings. new_severity is null for "removed" findings.
+- explanation: 1-2 sentences explaining what changed and why it matters.
+- Do not wrap JSON in markdown fences.
+- CRITICAL: All string values must use \\n for line breaks, never literal newline characters.
+"""
+
 
 # ---------------------------------------------------------------------------
 # JSON sanitizer / extractor
@@ -158,6 +190,26 @@ def _parse_analysis(raw: str) -> tuple[AnalysisResult | None, str | None]:
     try:
         data = json.loads(_sanitize_json(_extract_json(raw)))
         return AnalysisResult.model_validate(data), None
+    except Exception as exc:
+        return None, str(exc)
+
+
+def _parse_diff(
+    raw: str, old_version: int, new_version: int, old_score: int, new_score: int
+) -> tuple[DiffResult | None, str | None]:
+    """Try to parse raw LLM output into DiffResult. Returns (result, error_detail)."""
+    try:
+        data = json.loads(_sanitize_json(_extract_json(raw)))
+        changes = [FindingChange.model_validate(c) for c in data.get("changes", [])]
+        return DiffResult(
+            old_version=old_version,
+            new_version=new_version,
+            old_score=old_score,
+            new_score=new_score,
+            score_delta=new_score - old_score,
+            summary=data["summary"],
+            changes=changes,
+        ), None
     except Exception as exc:
         return None, str(exc)
 
@@ -366,3 +418,106 @@ async def summarize_messages(messages: list[str]) -> str:
         _raise_for_ai_error(exc)
 
     return response.choices[0].message.content or "No summary available."
+
+
+def _build_diff_user_message(v_old: AnalysisResult, v_new: AnalysisResult) -> str:
+    def _fmt(v: AnalysisResult) -> str:
+        lines = [f"Score: {v.score}/100", "", v.analysis_markdown, "", "Findings:"]
+        for f in v.findings:
+            lines.append(f"- [{f.severity.upper()}] {f.title}: {f.explanation}")
+        return "\n".join(lines)
+
+    return (
+        f"VERSION A (older):\n{_fmt(v_old)}\n\n---\n\nVERSION B (newer):\n{_fmt(v_new)}"
+    )
+
+
+async def diff_analyses(
+    v_old: AnalysisResult,
+    v_new: AnalysisResult,
+    old_version: int,
+    new_version: int,
+) -> DiffResult:
+    logger.info(
+        "Sending diff request to AI",
+        model=settings.ai.model,
+        old_version=old_version,
+        new_version=new_version,
+    )
+    user_msg = _build_diff_user_message(v_old, v_new)
+
+    try:
+        response = await _client.chat.completions.create(
+            model=settings.ai.model,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": _DIFF_SYSTEM_PROMPT},
+                {"role": "user", "content": user_msg[:16_000]},
+            ],
+            temperature=0.2,
+            max_tokens=8_000,
+        )
+    except Exception as exc:
+        _raise_for_ai_error(exc)
+
+    raw = response.choices[0].message.content or "{}"
+    finish_reason = response.choices[0].finish_reason
+    tokens_used = response.usage and response.usage.total_tokens
+
+    logger.debug(
+        "---\nDiff attempt 1 raw response\n---\n"
+        + raw[:2000]
+        + ("\n[...truncated]" if len(raw) > 2000 else "")
+        + "\n---",
+        tokens_used=tokens_used,
+        finish_reason=finish_reason,
+    )
+
+    if finish_reason == "length":
+        logger.warning("Diff attempt truncated by token limit", tokens_used=tokens_used)
+
+    result, parse_error = _parse_diff(
+        raw, old_version, new_version, v_old.score, v_new.score
+    )
+    if result:
+        logger.info("Diff succeeded", tokens_used=tokens_used)
+        return result
+
+    # Retry with fix prompt
+    logger.warning(
+        "---\nDiff attempt 1 failed\n---\n" + (parse_error or "unknown") + "\n---",
+        finish_reason=finish_reason,
+    )
+    try:
+        fix_response = await _client.chat.completions.create(
+            model=settings.ai.model,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": _FIX_SYSTEM_PROMPT},
+                {"role": "user", "content": raw[:8_000]},
+            ],
+            temperature=0.0,
+            max_tokens=8_000,
+        )
+    except Exception as exc:
+        logger.error("Diff fix attempt failed", error=str(exc))
+        _raise_for_ai_error(exc)
+
+    fixed_raw = fix_response.choices[0].message.content or "{}"
+    result, fix_error = _parse_diff(
+        fixed_raw, old_version, new_version, v_old.score, v_new.score
+    )
+    if result:
+        logger.info("Diff fix attempt succeeded")
+        return result
+
+    logger.error("Diff both attempts failed", fix_error=fix_error)
+    return DiffResult(
+        old_version=old_version,
+        new_version=new_version,
+        old_score=v_old.score,
+        new_score=v_new.score,
+        score_delta=v_new.score - v_old.score,
+        summary="⚠️ Could not generate semantic diff. Compare the two analyses manually.",
+        changes=[],
+    )

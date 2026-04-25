@@ -35,6 +35,7 @@ class Settings(BaseSettings):
 
     project_name: str = "reqlens"
     debug: bool = False
+    cors_origins: list[str] = ["*"]
 
     database: DatabaseSettings
     jwt: JwtSettings
