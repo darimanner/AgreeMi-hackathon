@@ -24,7 +24,6 @@ Analyze the uploaded requirements document.
 Return ONLY valid JSON with this shape:
 
 {
-  "document_markdown": string,
   "analysis_markdown": string,
   "score": number,
   "findings": [
@@ -42,14 +41,40 @@ Return ONLY valid JSON with this shape:
 }
 
 Rules:
-- document_markdown must be a clean markdown version of the source document.
 - analysis_markdown must be a human-readable review with summary, risks, unrealistic parts, missing requirements, unclear acceptance criteria, technical concerns, and recommended next steps.
-- findings must point to exact problematic fragments from document_markdown.
-- quote must be copied from document_markdown.
-- start_line and end_line must refer to line numbers in document_markdown.
+- findings must point to exact problematic fragments from the document.
+- quote must be copied verbatim from the document.
+- start_line and end_line refer to line numbers in the original document.
 - score must be 0-100, where 100 means clear, realistic, implementable requirements.
 - Do not wrap JSON in markdown fences.
 - CRITICAL: All string values must use \\n for line breaks, never literal newline characters. The output must be valid single-object JSON parseable by json.loads().
+"""
+
+_FIX_SYSTEM_PROMPT = """\
+The previous response contains malformed JSON that cannot be parsed.
+Fix it and return ONLY a valid JSON object with this exact shape:
+
+{
+  "analysis_markdown": string,
+  "score": number,
+  "findings": [
+    {
+      "id": string,
+      "severity": "critical" | "high" | "medium" | "low" | "info",
+      "title": string,
+      "explanation": string,
+      "recommendation": string,
+      "quote": string,
+      "start_line": number,
+      "end_line": number
+    }
+  ]
+}
+
+CRITICAL rules:
+- All newlines inside string values must be written as \\n (escaped), never as literal line breaks.
+- Do not wrap the result in markdown fences.
+- Return ONLY the JSON object — no explanation, no preamble.
 """
 
 _UPDATE_SYSTEM_PROMPT = """\
@@ -61,7 +86,7 @@ Be factual, neutral, and developer-friendly.
 
 
 # ---------------------------------------------------------------------------
-# JSON sanitizer
+# JSON sanitizer / extractor
 # ---------------------------------------------------------------------------
 
 
@@ -76,14 +101,7 @@ def _escape_control_char(char: str) -> str:
 
 
 def _sanitize_json(raw: str) -> str:
-    """Escape unescaped control characters inside JSON string literals.
-
-    LLMs sometimes output literal newlines/tabs inside JSON strings instead
-    of the required \\n / \\t escapes, which makes json.loads() fail with
-    'Invalid control character'. This function fixes that by scanning the
-    raw string character by character and escaping any bare control char
-    found inside a JSON string value.
-    """
+    """Escape bare control characters inside JSON string literals."""
     result: list[str] = []
     in_string = False
     escape_next = False
@@ -107,6 +125,41 @@ def _sanitize_json(raw: str) -> str:
             result.append(char)
 
     return "".join(result)
+
+
+def _extract_json(raw: str) -> str:
+    """Strip markdown fences / preamble and return the first complete JSON object."""
+    raw = raw.strip()
+
+    if raw.startswith("```"):
+        newline = raw.find("\n")
+        if newline != -1:
+            raw = raw[newline + 1 :]
+        raw = raw.rstrip("`").strip()
+
+    start = raw.find("{")
+    if start == -1:
+        return raw
+
+    depth = 0
+    for i, char in enumerate(raw[start:], start):
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return raw[start : i + 1]
+
+    return raw[start:]
+
+
+def _parse_analysis(raw: str) -> tuple[AnalysisResult | None, str | None]:
+    """Try to parse raw LLM output into AnalysisResult. Returns (result, error_detail)."""
+    try:
+        data = json.loads(_sanitize_json(_extract_json(raw)))
+        return AnalysisResult.model_validate(data), None
+    except Exception as exc:
+        return None, str(exc)
 
 
 # ---------------------------------------------------------------------------
@@ -178,11 +231,10 @@ def _raise_for_ai_error(exc: Exception) -> None:
 
 async def analyze_document(text: str) -> AnalysisResult:
     logger.info(
-        "Sending document for AI analysis",
-        model=settings.ai.model,
-        chars=len(text),
+        "Sending document for AI analysis", model=settings.ai.model, chars=len(text)
     )
 
+    # --- Attempt 1: normal request ---
     try:
         response = await _client.chat.completions.create(
             model=settings.ai.model,
@@ -192,26 +244,106 @@ async def analyze_document(text: str) -> AnalysisResult:
                 {"role": "user", "content": text[:12_000]},
             ],
             temperature=0.2,
-            max_tokens=6000,
+            max_tokens=50_000,
         )
     except Exception as exc:
         _raise_for_ai_error(exc)
 
     raw = response.choices[0].message.content or "{}"
+    finish_reason = response.choices[0].finish_reason
+    tokens_used = response.usage and response.usage.total_tokens
+
     logger.debug(
-        "Received AI analysis response",
-        tokens_used=response.usage and response.usage.total_tokens,
+        "---\nAttempt 1 raw response\n---\n"
+        + raw[:2000]
+        + ("\n[...truncated]" if len(raw) > 2000 else "")
+        + "\n---",
+        tokens_used=tokens_used,
+        finish_reason=finish_reason,
+        raw_len=len(raw),
     )
 
-    sanitized = _sanitize_json(raw)
-    try:
-        data = json.loads(sanitized)
-        return AnalysisResult.model_validate(data)
-    except Exception as exc:
-        logger.error(
-            "Failed to parse AI analysis response", raw=raw[:500], error=str(exc)
+    if finish_reason == "length":
+        logger.warning(
+            "Attempt 1 truncated by token limit",
+            tokens_used=tokens_used,
+            raw_len=len(raw),
         )
-        raise ValueError(f"Model returned unparseable JSON: {exc}") from exc
+
+    result, parse_error = _parse_analysis(raw)
+    if result:
+        logger.info(
+            "Attempt 1 succeeded", tokens_used=tokens_used, finish_reason=finish_reason
+        )
+        result.document_markdown = text
+        return result
+
+    # --- Attempt 2: send bad output back, ask model to fix it ---
+    logger.warning(
+        "---\nAttempt 1 failed — parse error\n---\n"
+        + (parse_error or "unknown")
+        + "\n---\nRaw preview:\n---\n"
+        + raw[:500]
+        + "\n---",
+        finish_reason=finish_reason,
+        tokens_used=tokens_used,
+        raw_len=len(raw),
+    )
+    try:
+        fix_response = await _client.chat.completions.create(
+            model=settings.ai.model,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": _FIX_SYSTEM_PROMPT},
+                {"role": "user", "content": raw[:8_000]},
+            ],
+            temperature=0.0,
+            max_tokens=50_000,
+        )
+    except Exception as exc:
+        logger.error("Fix attempt API call failed", error=str(exc))
+        _raise_for_ai_error(exc)
+
+    fixed_raw = fix_response.choices[0].message.content or "{}"
+    fix_finish_reason = fix_response.choices[0].finish_reason
+    fix_tokens = fix_response.usage and fix_response.usage.total_tokens
+
+    logger.debug(
+        "---\nAttempt 2 (fix) raw response\n---\n"
+        + fixed_raw[:2000]
+        + ("\n[...truncated]" if len(fixed_raw) > 2000 else "")
+        + "\n---",
+        tokens_used=fix_tokens,
+        finish_reason=fix_finish_reason,
+    )
+
+    if fix_finish_reason == "length":
+        logger.warning(
+            "Fix attempt also truncated by token limit", tokens_used=fix_tokens
+        )
+
+    result, fix_parse_error = _parse_analysis(fixed_raw)
+    if result:
+        logger.info("Attempt 2 (fix) succeeded", tokens_used=fix_tokens)
+        result.document_markdown = text
+        return result
+
+    # --- Fallback: both attempts failed ---
+    logger.error(
+        "---\nBoth attempts failed\n---\n"
+        "Attempt 1 error: " + (parse_error or "unknown") + "\n"
+        "Attempt 2 error: " + (fix_parse_error or "unknown") + "\n---\n"
+        "Attempt 2 raw tail:\n---\n" + fixed_raw[-500:] + "\n---",
+    )
+    return AnalysisResult(
+        score=0,
+        document_markdown=text,
+        analysis_markdown=(
+            "⚠️ The AI returned a malformed response after two attempts. "
+            "Please try `/analyze` again or upload a shorter document."
+        ),
+        findings=[],
+    )
 
 
 async def summarize_messages(messages: list[str]) -> str:

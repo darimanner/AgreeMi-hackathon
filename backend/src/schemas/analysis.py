@@ -27,7 +27,7 @@ class AnalysisResult(BaseModel):
 
     score: int = Field(..., ge=0, le=100, description="Overall quality score 0-100")
     document_markdown: str = Field(
-        ..., description="Clean markdown version of the source document"
+        default="", description="Clean markdown version of the source document"
     )
     analysis_markdown: str = Field(
         ..., description="Human-readable review with summary and risks"

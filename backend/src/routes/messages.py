@@ -4,7 +4,7 @@ import uuid
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 from markitdown import MarkItDown
 from sqlalchemy import and_, select
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import attributes, selectinload
 
 from core.logger import logger
 from core.ws_manager import manager
@@ -134,9 +134,11 @@ async def send_message(
         )
         session.add(attachment)
 
-    # Set relationship in memory so model_validate works without a re-query.
-    # expire_on_commit=False keeps all attributes alive after commit.
-    message.attachments = [attachment] if attachment else []
+    # Set relationship in memory without triggering a lazy load (MissingGreenlet).
+    # set_committed_value bypasses ORM instrumentation entirely.
+    attributes.set_committed_value(
+        message, "attachments", [attachment] if attachment else []
+    )
 
     await session.commit()
 
