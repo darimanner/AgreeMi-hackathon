@@ -23,7 +23,7 @@ function getAuthorLabel(
   currentUser: { id: string; name: string } | null,
   participants: Array<{ id: string; name: string }>
 ): string {
-  if (authorId === 'ai') return 'ReqLens AI';
+  if (authorId === 'ai') return 'AgreeMi AI';
   if (authorId === 'system') return 'System';
   if (currentUser && authorId === currentUser.id) return currentUser.name;
   return participants.find(user => user.id === authorId)?.name ?? (authorId.length > 8 ? authorId.slice(0, 8) : authorId);
@@ -93,10 +93,10 @@ export const HomePage: React.FC = () => {
         <nav className="landing-nav glass">
           <div className="logo">
             <div className="logo-icon"><Zap size={14} /></div>
-            <span className="logo-text">ReqLens</span>
+            <span className="logo-text">AgreeMi</span>
           </div>
           <div className="landing-nav-actions">
-            <button className="btn btn-ghost theme-toggle" onClick={toggleTheme} title="Toggle theme">
+            <button className="btn btn-ghost theme-toggle" onClick={toggleTheme} title="Toggle theme" aria-label="Toggle theme">
               {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
             </button>
             <Link to="/login" className="btn btn-ghost">Sign in</Link>
@@ -165,7 +165,7 @@ export const HomePage: React.FC = () => {
         <div className="dash-logo">
           <div className="logo">
             <div className="logo-icon"><Zap size={14} /></div>
-            <span className="logo-text">ReqLens</span>
+            <span className="logo-text">AgreeMi</span>
           </div>
         </div>
 
@@ -197,7 +197,7 @@ export const HomePage: React.FC = () => {
           </button>
         </nav>
 
-        <button className="dash-theme btn btn-ghost" onClick={toggleTheme}>
+        <button className="dash-theme btn btn-ghost" onClick={toggleTheme} aria-label="Toggle theme">
           {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
           {theme === 'dark' ? 'Light theme' : 'Dark theme'}
         </button>
@@ -228,6 +228,7 @@ export const HomePage: React.FC = () => {
           <form className="new-chat-form glass animate-fade-up" onSubmit={handleCreate}>
             <input
               className="input"
+              aria-label="Project name"
               placeholder="Project name (e.g. E-Commerce MVP)"
               value={newTitle}
               onChange={e => setNewTitle(e.target.value)}
@@ -311,7 +312,8 @@ export const HomePage: React.FC = () => {
             <form className="join-form" onSubmit={handleJoin}>
               <input
                 className="input"
-                placeholder="https://reqlens.app/join/chat-1 or just the code"
+                aria-label="Invite link or invite code"
+                placeholder="https://agree-mi.com/join/chat-1 or just the code"
                 value={joinLink}
                 onChange={e => { setJoinLink(e.target.value); setJoinError(''); }}
                 autoFocus

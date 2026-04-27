@@ -1,5 +1,5 @@
-import type { AiAnalysis, AiIssue, Attachment, ChatRoom, Message } from '../../shared/types';
-import type { BackendAiAnalysis, BackendAttachment, BackendIssue, BackendMessage, ChatOut } from '../../shared/api';
+import type { AiAnalysis, AiDiff, AiIssue, Attachment, ChatRoom, Message } from '../../shared/types';
+import type { BackendAiAnalysis, BackendAiDiff, BackendAttachment, BackendIssue, BackendMessage, ChatOut } from '../../shared/api';
 
 function mapSeverity(severity: BackendIssue['severity']): AiIssue['severity'] {
   if (severity === 'critical') return 'critical';
@@ -106,5 +106,15 @@ export function normalizeChat(chat: ChatOut, existing?: ChatRoom): ChatRoom {
     createdAt: new Date(chat.created_at),
     lastMessageAt: new Date(chat.updated_at ?? chat.created_at),
     aiAnalysis: normalizeAnalysis(chat.ai_analysis_json) ?? existing?.aiAnalysis,
+  };
+}
+
+export function normalizeDiff(diff?: BackendAiDiff | null): AiDiff | undefined {
+  if (!diff) return undefined;
+  return {
+    summary: diff.summary,
+    scoreDelta: diff.score_delta,
+    generatedAt: diff.generated_at ? new Date(diff.generated_at) : new Date(),
+    analysisMarkdown: diff.analysis_markdown,
   };
 }

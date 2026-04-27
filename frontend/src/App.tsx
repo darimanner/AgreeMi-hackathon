@@ -1,9 +1,9 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAppStore } from './app/store';
+import { HomePage } from './pages/HomePage';
 import './App.css';
 
-const HomePage    = lazy(() => import('./pages/HomePage').then(m => ({ default: m.HomePage })));
 const LoginPage   = lazy(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })));
 const RegisterPage = lazy(() => import('./pages/RegisterPage').then(m => ({ default: m.RegisterPage })));
 const ChatPage    = lazy(() => import('./pages/ChatPage').then(m => ({ default: m.ChatPage })));

@@ -4,14 +4,14 @@ import type { ApiUser, LoginRequest, LoginResponse, RegisterRequest, RegisterRes
 export async function loginRequest(payload: LoginRequest): Promise<LoginResponse> {
   return apiRequest<LoginResponse>('/auth/login', {
     method: 'POST',
-    body: JSON.stringify(payload),
+    data: payload,
   });
 }
 
 export async function registerRequest(payload: RegisterRequest): Promise<RegisterResponse> {
   return apiRequest<RegisterResponse>('/auth/register', {
     method: 'POST',
-    body: JSON.stringify(payload),
+    data: payload,
   });
 }
 

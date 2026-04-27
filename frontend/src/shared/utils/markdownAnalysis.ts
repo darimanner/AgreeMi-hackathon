@@ -229,7 +229,8 @@ export function getIssueForBlock(block: DocumentBlock, issues: AiIssue[]): AiIss
   return issues.find(issue => {
     if (!issue.startLine) return false;
     const end = issue.endLine ?? issue.startLine;
-    return issue.startLine <= block.endLine && end >= block.startLine;
+    // Buffer of 1 line to catch context or slight misalignments
+    return (issue.startLine - 1) <= block.endLine && (end + 1) >= block.startLine;
   });
 }
 

@@ -46,7 +46,7 @@ export const JoinPage: React.FC = () => {
         <div className="auth-card auth-card--center animate-fade-up">
           <div className="auth-logo auth-logo--center">
             <div className="logo-icon"><Zap size={16} /></div>
-            <span className="logo-text">ReqLens</span>
+            <span className="logo-text">AgreeMi</span>
           </div>
           <XCircle size={40} className="auth-status-icon auth-status-icon--error" />
           <h2>Couldn't join</h2>
@@ -67,7 +67,7 @@ export const JoinPage: React.FC = () => {
       <div className="auth-card auth-card--center animate-fade-up">
         <div className="auth-logo auth-logo--center">
           <div className="logo-icon"><Zap size={16} /></div>
-          <span className="logo-text">ReqLens</span>
+          <span className="logo-text">AgreeMi</span>
         </div>
 
         {status === 'loading' && (

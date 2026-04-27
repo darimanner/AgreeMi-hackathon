@@ -37,7 +37,7 @@ export const LoginPage: React.FC = () => {
         {/* Logo */}
         <div className="auth-logo">
           <div className="logo-icon"><Zap size={16} /></div>
-          <span className="logo-text">ReqLens</span>
+          <span className="logo-text">AgreeMi</span>
         </div>
 
         <div className="auth-header">
@@ -47,10 +47,11 @@ export const LoginPage: React.FC = () => {
 
         <form className="auth-form" onSubmit={handleSubmit}>
           <div className="field">
-            <label className="field-label">Email</label>
+            <label className="field-label" htmlFor="login-email">Email</label>
             <div className="field-wrap">
               <Mail size={15} className="field-icon" />
               <input
+                id="login-email"
                 className="input field-input"
                 type="email"
                 placeholder="you@example.com"
@@ -62,10 +63,11 @@ export const LoginPage: React.FC = () => {
           </div>
 
           <div className="field">
-            <label className="field-label">Password</label>
+            <label className="field-label" htmlFor="login-password">Password</label>
             <div className="field-wrap">
               <Lock size={15} className="field-icon" />
               <input
+                id="login-password"
                 className="input field-input"
                 type={showPass ? 'text' : 'password'}
                 placeholder="••••••••"
@@ -77,6 +79,7 @@ export const LoginPage: React.FC = () => {
                 type="button"
                 className="field-eye"
                 onClick={() => setShowPass(v => !v)}
+                aria-label={showPass ? 'Hide password' : 'Show password'}
               >
                 {showPass ? <EyeOff size={14} /> : <Eye size={14} />}
               </button>

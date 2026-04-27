@@ -46,12 +46,13 @@ export const AiAnalysisSidebar: React.FC<AiAnalysisSidebarProps> = ({ chatId }) 
         className="sidebar-resize-handle"
         onPointerDown={handleResizeStart}
         title="Resize analysis panel"
+        aria-label="Resize analysis panel"
       >
         <GripVertical size={14} />
       </button>
 
       {/* Toggle tab */}
-      <button className="sidebar-toggle-tab" onClick={toggleSidebar}>
+      <button className="sidebar-toggle-tab" onClick={toggleSidebar} aria-label="Toggle analysis panel">
         {isSidebarOpen ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
       </button>
 

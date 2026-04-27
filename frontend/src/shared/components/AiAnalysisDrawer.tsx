@@ -31,17 +31,20 @@ export const AiAnalysisDrawer: React.FC<AiAnalysisDrawerProps> = ({ chatId, isOp
       <div
         className="ai-drawer animate-drawer-in"
         onClick={e => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="ai-drawer-title"
       >
         {/* Header */}
         <div className="ai-drawer-header">
           <div className="flex items-center gap-2">
             <div className="sidebar-ai-icon"><Bot size={15} /></div>
             <div>
-              <div className="sidebar-title">AI Analysis</div>
+              <div className="sidebar-title" id="ai-drawer-title">AI Analysis</div>
               <div className="text-xs text-muted">Powered by GPT-4o</div>
             </div>
           </div>
-          <button className="ai-drawer-close" onClick={onClose} title="Close">
+          <button className="ai-drawer-close" onClick={onClose} title="Close" aria-label="Close AI analysis">
             <X size={18} />
           </button>
         </div>

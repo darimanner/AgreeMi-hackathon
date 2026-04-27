@@ -5,9 +5,10 @@ import {
   listMessagesRequest,
   runCommandRequest,
   sendMessageRequest,
+  getAnalysisSummaryRequest,
 } from '../../shared/api';
 import { isAbortError } from '../../shared/api';
-import { normalizeAnalysis, normalizeChat, normalizeMessage } from './normalize';
+import { normalizeAnalysis, normalizeChat, normalizeDiff, normalizeMessage } from './normalize';
 import { abortRequest, finishRequest, startRequest } from './runtime';
 import type { AppStoreSlice, ChatSlice } from './types';
 import type { ChatRoom, Message } from '../../shared/types';
@@ -273,12 +274,15 @@ export const createChatSlice: AppStoreSlice<ChatSlice> = (set, get) => ({
     set({
       chatRooms: appendMessage(get().chatRooms, chatId, {
         id: aiPlaceholderId,
-        clientMessageId: aiPlaceholderId,
         chatId,
         authorId: 'ai',
         role: 'ai',
         content: command.trim().toLowerCase().startsWith('/analyze')
           ? 'Analyzing the document…'
+          : command.trim().toLowerCase().startsWith('/diff')
+          ? 'Comparing versions…'
+          : command.trim().toLowerCase().startsWith('/summary')
+          ? 'Generating executive summary…'
           : 'Working on it…',
         timestamp: new Date(),
         isStreaming: true,
@@ -287,22 +291,65 @@ export const createChatSlice: AppStoreSlice<ChatSlice> = (set, get) => ({
     });
 
     try {
-      const response = await runCommandRequest(chatId, command, signal);
-      if (!finishRequest(key, signal)) return;
+      const cmd = command.trim().toLowerCase();
 
-      const normalized = normalizeMessage(response.message);
-      set({ chatRooms: replaceMessage(get().chatRooms, chatId, aiPlaceholderId, normalized) });
+      if (cmd.startsWith('/summary')) {
+        const res = await getAnalysisSummaryRequest(chatId, signal);
+        if (!finishRequest(key, signal)) return;
 
-      if (command.trim().toLowerCase().startsWith('/analyze')) {
-        const analysis = normalizeAnalysis(response.analysis);
-        if (analysis) {
-          set({
-            chatRooms: get().chatRooms.map(room =>
-              room.id === chatId ? { ...room, aiAnalysis: analysis } : room
-            ),
-          });
-        } else {
-          await get().loadChats();
+        const summaryMsg: Message = {
+          id: createOptimisticId('ai-summary'),
+          chatId,
+          authorId: 'ai',
+          role: 'ai',
+          content: `### Executive Summary (v${res.version})\n**Quality Score: ${res.score}/100**\n\n${res.summary}`,
+          timestamp: new Date(),
+          status: 'sent',
+        };
+
+        set({
+          chatRooms: get().chatRooms.map(room =>
+            room.id === chatId
+              ? {
+                  ...room,
+                  messages: room.messages
+                    .filter(m => m.id !== aiPlaceholderId)
+                    .concat(summaryMsg),
+                  aiAnalysis: room.aiAnalysis
+                    ? { ...room.aiAnalysis, score: res.score }
+                    : room.aiAnalysis,
+                }
+              : room
+          ),
+        });
+      } else {
+        // Стандартные команды (/analyze, /diff)
+        const response = await runCommandRequest(chatId, command, signal);
+        if (!finishRequest(key, signal)) return;
+
+        const normalized = normalizeMessage(response.message);
+        set({ chatRooms: replaceMessage(get().chatRooms, chatId, aiPlaceholderId, normalized) });
+
+        if (cmd.startsWith('/analyze')) {
+          const analysis = normalizeAnalysis(response.analysis);
+          if (analysis) {
+            set({
+              chatRooms: get().chatRooms.map(room =>
+                room.id === chatId ? { ...room, aiAnalysis: analysis } : room
+              ),
+            });
+          } else {
+            await get().loadChats();
+          }
+        } else if (cmd.startsWith('/diff')) {
+          const diff = normalizeDiff(response.diff);
+          if (diff) {
+            set({
+              chatRooms: get().chatRooms.map(room =>
+                room.id === chatId ? { ...room, aiDiff: diff } : room
+              ),
+            });
+          }
         }
       }
     } catch (error) {

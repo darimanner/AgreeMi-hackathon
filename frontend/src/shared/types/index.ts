@@ -41,6 +41,7 @@ export interface ChatRoom {
   createdAt: Date;
   lastMessageAt: Date;
   aiAnalysis?: AiAnalysis;
+  aiDiff?: AiDiff;
 }
 
 // ── AI Analysis (sidebar) ─────────────────────────────────────────────────────
@@ -62,6 +63,13 @@ export interface AiAnalysis {
   generatedAt: Date;
   analysisMarkdown?: string;
   documentMarkdown?: string;
+}
+
+export interface AiDiff {
+  summary: string;
+  scoreDelta: number;
+  generatedAt: Date;
+  analysisMarkdown?: string;
 }
 
 // ── App state ─────────────────────────────────────────────────────────────────

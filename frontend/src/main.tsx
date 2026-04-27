@@ -5,8 +5,6 @@ import './index.css'
 import App from './App.tsx'
 import { unregisterStaleServiceWorkers } from './shared/pwa/cleanup.ts'
 
-void unregisterStaleServiceWorkers()
-
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
@@ -14,3 +12,11 @@ createRoot(document.getElementById('root')!).render(
     </BrowserRouter>
   </StrictMode>,
 )
+
+const runAfterFirstPaint = window.requestIdleCallback ?? ((callback: IdleRequestCallback) => {
+  window.setTimeout(() => callback({ didTimeout: false, timeRemaining: () => 0 }), 1)
+})
+
+runAfterFirstPaint(() => {
+  void unregisterStaleServiceWorkers()
+})

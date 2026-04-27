@@ -793,18 +793,18 @@
 }
 .document-line--critical,
 .document-line--high {
-  background: var(--red-glow);
-  border-left-color: var(--red-400);
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.05) 100%);
+  border-left: 3px solid var(--red-400);
 }
 .document-line--warning,
 .document-line--medium {
-  background: var(--yellow-glow);
-  border-left-color: var(--yellow-400);
+  background: linear-gradient(90deg, rgba(234, 179, 8, 0.12) 0%, rgba(234, 179, 8, 0.04) 100%);
+  border-left: 3px solid var(--yellow-400);
 }
 .document-line--low,
 .document-line--info {
-  background: var(--blue-glow);
-  border-left-color: var(--blue-400);
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0.03) 100%);
+  border-left: 3px solid var(--blue-400);
 }
 .document-line--critical,
 .document-line--high,
@@ -812,7 +812,14 @@
 .document-line--low,
 .document-line--info {
   cursor: help;
+  position: relative;
+  transition: background 0.2s ease;
 }
+.document-line--critical:hover,
+.document-line--high:hover {
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.2) 0%, rgba(239, 68, 68, 0.08) 100%);
+}
+
 .document-block:focus-visible {
   outline: 2px solid var(--lime-400);
   outline-offset: -2px;

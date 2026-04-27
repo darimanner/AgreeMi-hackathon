@@ -86,7 +86,16 @@ export interface CommandResponse {
   result: string;
   message: BackendMessage;
   analysis?: BackendAiAnalysis | null;
+  diff?: BackendAiDiff | null;
 }
+
+export interface BackendAiDiff {
+  summary: string;
+  score_delta: number;
+  analysis_markdown: string;
+  generated_at?: string;
+}
+
 
 export interface NormalizedChatRoom extends ChatRoom {
   inviteCode?: string;
@@ -95,6 +104,12 @@ export interface NormalizedChatRoom extends ChatRoom {
 export interface ChatMessagesQuery {
   limit?: number;
   offset?: number;
+}
+
+export interface AnalysisSummaryResponse {
+  summary: string;
+  version: number;
+  score: number;
 }
 
 export interface SendMessageInput {

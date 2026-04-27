@@ -11,6 +11,7 @@ export class ApiError extends Error {
 }
 
 export function isAbortError(error: unknown): boolean {
+  if (error instanceof ApiError && error.message === 'Request cancelled') return true;
   return error instanceof DOMException && error.name === 'AbortError';
 }
 

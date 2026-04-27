@@ -35,7 +35,7 @@ export const RegisterPage: React.FC = () => {
       <div className="auth-card animate-fade-up">
         <div className="auth-logo">
           <div className="logo-icon"><Zap size={16} /></div>
-          <span className="logo-text">ReqLens</span>
+          <span className="logo-text">AgreeMi</span>
         </div>
 
         <div className="auth-header">
@@ -46,30 +46,30 @@ export const RegisterPage: React.FC = () => {
         <form className="auth-form" onSubmit={handleSubmit}>
           {/* Name */}
           <div className="field">
-            <label className="field-label">Full name</label>
+            <label className="field-label" htmlFor="register-name">Full name</label>
             <div className="field-wrap">
               <User size={15} className="field-icon" />
-              <input className="input field-input" type="text" placeholder="Your name"
+              <input id="register-name" className="input field-input" type="text" placeholder="Your name"
                 value={name} onChange={e => setName(e.target.value)} required />
             </div>
           </div>
 
           {/* Email */}
           <div className="field">
-            <label className="field-label">Email</label>
+            <label className="field-label" htmlFor="register-email">Email</label>
             <div className="field-wrap">
               <Mail size={15} className="field-icon" />
-              <input className="input field-input" type="email" placeholder="you@example.com"
+              <input id="register-email" className="input field-input" type="email" placeholder="you@example.com"
                 value={email} onChange={e => setEmail(e.target.value)} required />
             </div>
           </div>
 
           {/* Password */}
           <div className="field">
-            <label className="field-label">Password</label>
+            <label className="field-label" htmlFor="register-password">Password</label>
             <div className="field-wrap">
               <Lock size={15} className="field-icon" />
-              <input className="input field-input" type="password" placeholder="Min 6 characters"
+              <input id="register-password" className="input field-input" type="password" placeholder="Min 6 characters"
                 value={password} onChange={e => setPassword(e.target.value)} required />
             </div>
           </div>
@@ -82,6 +82,7 @@ export const RegisterPage: React.FC = () => {
                 type="button"
                 className={`role-btn ${role === 'client' ? 'active' : ''}`}
                 onClick={() => setRole('client')}
+                aria-pressed={role === 'client'}
               >
                 <span className="role-emoji">👤</span>
                 Client
@@ -91,6 +92,7 @@ export const RegisterPage: React.FC = () => {
                 type="button"
                 className={`role-btn ${role === 'developer' ? 'active' : ''}`}
                 onClick={() => setRole('developer')}
+                aria-pressed={role === 'developer'}
               >
                 <span className="role-emoji">⚡</span>
                 Developer

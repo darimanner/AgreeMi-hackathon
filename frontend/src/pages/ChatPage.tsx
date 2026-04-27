@@ -20,15 +20,17 @@ function formatTime(d: Date) {
   return new Date(d).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' });
 }
 
+
+
 function getInitials(role: Message['role'], authorId: string) {
   if (role === 'ai')     return '🤖';
   if (role === 'system') return '⚙';
   return authorId.charAt(0).toUpperCase();
 }
 
-function shortId(value: string): string {
-  return value.length > 8 ? value.slice(0, 8) : value;
-}
+// function shortId(value: string): string {
+//   return value.length > 8 ? value.slice(0, 8) : value;
+// }
 
 type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'error' | 'closed';
 
@@ -290,16 +292,14 @@ export const ChatPage: React.FC = () => {
   };
 
   const getMessageAuthorName = (msg: Message) => {
-    if (msg.role === 'ai') return 'ReqLens AI';
-    if (msg.role === 'system') return 'System';
-    if (msg.authorId === currentUser?.id) return currentUser.name;
-
-    const participant = room.participants.find(user => user.id === msg.authorId);
-    return participant?.name ?? shortId(msg.authorId);
+    if (msg.authorId === currentUser?.id) return 'You';
+    if (msg.role === 'ai') return 'AgreeMi AI';
+    const roleLabel = msg.role ? msg.role.charAt(0).toUpperCase() + msg.role.slice(1) : 'User';
+    return `${roleLabel} (${msg.authorId.slice(0, 4)})`;
   };
 
   // Command suggestions
-  const COMMANDS = ['/update', '/analyze', '/help'];
+  const COMMANDS = ['/analyze', '/diff', '/summary', '/help'];
   const suggestions = isCommand
     ? COMMANDS.filter(c => c.startsWith(input.toLowerCase()))
     : [];
@@ -342,7 +342,7 @@ export const ChatPage: React.FC = () => {
               Analyzed
             </span>
           )}
-          <button className="btn btn-ghost theme-toggle" onClick={toggleTheme} title="Toggle theme">
+          <button className="btn btn-ghost theme-toggle" onClick={toggleTheme} title="Toggle theme" aria-label="Toggle theme">
             {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
           </button>
           <button
@@ -373,13 +373,19 @@ export const ChatPage: React.FC = () => {
       {/* Invite modal */}
       {showInvite && (
         <div className="invite-modal-overlay" onClick={() => setShowInvite(false)}>
-          <div className="invite-modal glass animate-fade-up" onClick={e => e.stopPropagation()}>
+          <div
+            className="invite-modal glass animate-fade-up"
+            onClick={e => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="invite-modal-title"
+          >
             <div className="invite-modal-header">
-              <div className="invite-modal-title">
+              <div className="invite-modal-title" id="invite-modal-title">
                 <UserPlus size={16} />
                 Invite to "{room.title}"
               </div>
-              <button className="invite-modal-close" onClick={() => setShowInvite(false)}>
+              <button className="invite-modal-close" onClick={() => setShowInvite(false)} aria-label="Close invite dialog">
                 <X size={14} />
               </button>
             </div>
@@ -389,6 +395,7 @@ export const ChatPage: React.FC = () => {
             <div className="invite-link-row">
               <input
                 className="invite-link-input"
+                aria-label="Invite link"
                 value={inviteJoinLink}
                 readOnly
                 onFocus={e => e.target.select()}
@@ -435,7 +442,7 @@ export const ChatPage: React.FC = () => {
                   )}
                   {msg.role === 'ai' && (
                     <div className="msg-author text-xs" style={{ color: '#a78bfa' }}>
-                      🤖 ReqLens AI
+                      🤖 AgreeMi AI
                     </div>
                   )}
 
@@ -484,7 +491,7 @@ export const ChatPage: React.FC = () => {
               <div className="msg msg--ai">
                 <div className="avatar avatar-ai msg-avatar">🤖</div>
                 <div className="msg-bubble">
-                  <div className="msg-author text-xs" style={{ color: '#a78bfa' }}>🤖 ReqLens AI</div>
+                  <div className="msg-author text-xs" style={{ color: '#a78bfa' }}>🤖 AgreeMi AI</div>
                   <div className="msg-typing">
                     <span /><span /><span />
                   </div>
@@ -520,6 +527,7 @@ export const ChatPage: React.FC = () => {
                     <Paperclip size={11} />
                     <span>{a.name}</span>
                     <button onClick={() => removeAttachment(a.id)}>
+                      <span className="sr-only">Remove attachment</span>
                       <X size={11} />
                     </button>
                   </div>
@@ -536,6 +544,7 @@ export const ChatPage: React.FC = () => {
                 className="chat-attach-btn"
                 onClick={() => fileInputRef.current?.click()}
                 title="Attach file"
+                aria-label="Attach file"
               >
                 <Paperclip size={18} />
               </button>
@@ -543,6 +552,7 @@ export const ChatPage: React.FC = () => {
               <div className="chat-input-wrap">
                 <textarea
                   className="chat-input"
+                  aria-label="Message"
                   placeholder={isCommand ? 'Type a command…' : 'Message… or type / for commands'}
                   value={input}
                   onChange={e => setInput(e.target.value)}
@@ -555,6 +565,7 @@ export const ChatPage: React.FC = () => {
                 className={`chat-send ${(!input.trim() && attachments.length === 0) || isCurrentChatStreaming ? 'disabled' : ''}`}
                 onClick={handleSend}
                 disabled={(!input.trim() && attachments.length === 0) || isCurrentChatStreaming}
+                aria-label={isCommand ? 'Run command' : 'Send message'}
               >
                 {isCurrentChatStreaming
                   ? <Loader2 size={17} className="animate-spin" />
@@ -568,6 +579,7 @@ export const ChatPage: React.FC = () => {
             <input
               ref={fileInputRef}
               type="file"
+              aria-label="Upload attachment"
               accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg"
               style={{ display: 'none' }}
               onChange={handleFile}

@@ -6,6 +6,7 @@ import type {
   ChatOut,
   CommandResponse,
   SendMessageInput,
+  AnalysisSummaryResponse,
 } from './types';
 
 export async function listChatsRequest(): Promise<ChatOut[]> {
@@ -15,7 +16,7 @@ export async function listChatsRequest(): Promise<ChatOut[]> {
 export async function createChatRequest(title: string): Promise<ChatOut> {
   return apiRequest<ChatOut>('/chats', {
     method: 'POST',
-    body: JSON.stringify({ title }),
+    data: { title },
   });
 }
 
@@ -49,7 +50,7 @@ export async function sendMessageRequest(
 
   return apiRequest<BackendMessage>(`/chats/${encodeURIComponent(chatId)}/messages`, {
     method: 'POST',
-    body: formData,
+    data: formData,
     signal,
   });
 }
@@ -61,7 +62,18 @@ export async function runCommandRequest(
 ): Promise<CommandResponse> {
   return apiRequest<CommandResponse>(`/chats/${encodeURIComponent(chatId)}/commands`, {
     method: 'POST',
-    body: JSON.stringify({ command }),
+    data: { command },
+    signal,
+  });
+}
+
+export async function getAnalysisSummaryRequest(
+  chatId: string,
+  signal?: AbortSignal
+): Promise<AnalysisSummaryResponse> {
+  return apiRequest<AnalysisSummaryResponse>(`/chats/${encodeURIComponent(chatId)}/analysis/summary`, {
+    method: 'POST',
+    data: {},
     signal,
   });
 }
