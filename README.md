@@ -61,7 +61,10 @@ npm run dev                 # http://localhost:5173
 - Railway: root directory `/backend`, config file `/backend/railway.toml`
 - Netlify: base directory `frontend` (build settings come from `frontend/netlify.toml`)
 
-## Authors
+## Team
 
-- Kostiantyn Durlov - backend
-- Yevhen Hoha - frontend
+Built together as a team:
+
+- [Kostiantyn Durlov](https://www.linkedin.com/in/kostiantyn-durlov/) - backend
+- [Yevhen Hoha](https://www.linkedin.com/in/yevhen-hoha/) - frontend
+- [Oleksii Pavlov](https://www.linkedin.com/in/pavlov-oleksii/) - key architecture decisions, product ideas and branding, pitch deck and project presentation
