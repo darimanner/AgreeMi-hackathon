@@ -63,8 +63,12 @@ npm run dev                 # http://localhost:5173
 
 ## Team
 
-Built together as a team:
+Built by a team of three with equal contribution: ideas and key decisions were shared.
 
-- [Kostiantyn Durlov](https://www.linkedin.com/in/kostiantyn-durlov/) - backend
-- [Yevhen Hoha](https://www.linkedin.com/in/yevhen-hoha/) - frontend
-- [Oleksii Pavlov](https://www.linkedin.com/in/pavlov-oleksii/) - key architecture decisions, product ideas and branding, pitch deck and project presentation
+- [Kostiantyn Durlov](https://www.linkedin.com/in/kostiantyn-durlov/) - backend: AI features and chat, structured AI output,
+  document analysis features, model selection with cost estimates, deployment
+- [Yevhen Hoha](https://www.linkedin.com/in/yevhen-hoha/) - frontend: analysis and change review features, landing page, demo
+- [Oleksii Pavlov](https://www.linkedin.com/in/pavlov-oleksii/) - frontend architecture, expanding the idea and its use cases,
+  branding, final pitch
+
+After the hackathon, Kostiantyn maintains the backend and Yevhen the frontend.
