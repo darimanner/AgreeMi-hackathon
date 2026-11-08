@@ -72,3 +72,9 @@ Built by a team of three with equal contribution: ideas and key decisions were s
   branding, final pitch
 
 After the hackathon, Kostiantyn maintains the backend and Yevhen the frontend.
+
+## License
+
+[Apache License 2.0](LICENSE). You are free to use, modify and redistribute the code, as long as you
+keep the [NOTICE](NOTICE) file and credit the original source:
+https://github.com/darimanner/AgreeMi-hackathon
