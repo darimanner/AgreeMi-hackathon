@@ -35,7 +35,8 @@ def setup_logging(debug: bool = False) -> None:
         structlog.processors.UnicodeDecoder(),
         ConsoleRenderer(
             colors=True,
-            exception_formatter=structlog.dev.rich_traceback,
+            # Locals would include users' OpenRouter keys on the AI path.
+            exception_formatter=structlog.dev.RichTracebackFormatter(show_locals=False),
         ),
     ]
 

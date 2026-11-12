@@ -1,5 +1,5 @@
 import { loginRequest, registerRequest } from '../../shared/api';
-import { clearAccessToken, getAccessToken, setAccessToken } from '../../shared/api';
+import { clearAccessToken, clearOpenRouterKey, getAccessToken, setAccessToken } from '../../shared/api';
 import { decodeUserFromToken } from '../../shared/api';
 import { getErrorMessage } from '../../shared/api';
 import type { AppStoreSlice, AuthSlice } from './types';
@@ -40,6 +40,8 @@ export const createAuthSlice: AppStoreSlice<AuthSlice> = (set, get) => ({
         return { success: false, error: 'Could not read user session from token' };
       }
 
+      // Logging in as someone else must not inherit the previous user's key.
+      if (get().currentUser?.id !== user.id) clearOpenRouterKey();
       setAccessToken(response.access_token);
       set({
         currentUser: user,
@@ -66,6 +68,8 @@ export const createAuthSlice: AppStoreSlice<AuthSlice> = (set, get) => ({
 
   logout: () => {
     clearAccessToken();
+    // The key is a personal secret: don't leave it for the next user of this browser.
+    clearOpenRouterKey();
     set({
       currentUser: null,
       isAuthenticated: false,

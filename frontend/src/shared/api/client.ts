@@ -5,7 +5,7 @@ import axios, {
 } from 'axios';
 import { API_BASE_URL } from './config';
 import { ApiError } from './errors';
-import { getAccessToken } from './storage';
+import { getAccessToken, getOpenRouterKey } from './storage';
 
 type ApiQuery = Record<string, string | number | undefined>;
 type ApiRequestConfig = AxiosRequestConfig & { query?: ApiQuery };
@@ -73,6 +73,10 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = getAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  const openRouterKey = getOpenRouterKey();
+  if (openRouterKey) {
+    config.headers['X-OpenRouter-Key'] = openRouterKey;
   }
   return config;
 });
