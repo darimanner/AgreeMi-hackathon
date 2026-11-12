@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   Zap, Plus, MessageSquare, Clock, ArrowRight,
@@ -50,21 +50,35 @@ export const HomePage: React.FC = () => {
   const [showKey, setShowKey] = useState(false);
   const [keyInput, setKeyInput] = useState('');
   const [hasKey, setHasKey] = useState(() => Boolean(getOpenRouterKey()));
+  const [keyError, setKeyError] = useState('');
+  const keyToggleRef = useRef<HTMLButtonElement>(null);
 
   const joinChat = useAppStore(s => s.joinChat);
 
+  const closeKeyForm = () => {
+    setKeyInput('');
+    setKeyError('');
+    setShowKey(false);
+    keyToggleRef.current?.focus();
+  };
+
   const handleSaveKey = (e: React.FormEvent) => {
     e.preventDefault();
-    setOpenRouterKey(keyInput.trim());
+    const key = keyInput.trim();
+    // Header values must be printable ASCII; a pasted zero-width char would break every request.
+    if (!/^[\x21-\x7E]+$/.test(key)) {
+      setKeyError('The key contains invalid characters, paste it again from openrouter.ai/keys');
+      return;
+    }
+    setOpenRouterKey(key);
     setHasKey(true);
-    setKeyInput('');
-    setShowKey(false);
+    closeKeyForm();
   };
 
   const handleRemoveKey = () => {
     clearOpenRouterKey();
     setHasKey(false);
-    setShowKey(false);
+    closeKeyForm();
   };
 
   const handleOpenChat = (chatId: string) => {
@@ -359,14 +373,19 @@ export const HomePage: React.FC = () => {
             <KeyRound size={16} style={{ color: 'var(--lime-400)' }} />
             <div>
               <div style={{ fontWeight: 600, fontSize: 14 }}>OpenRouter API key</div>
-              <div className="text-xs text-muted">
+              <div className="text-xs text-muted" role="status">
                 {hasKey
                   ? 'Saved in this browser and used for AI commands'
                   : <>AI commands run on your key, get one at{' '}
                       <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer">openrouter.ai/keys</a></>}
               </div>
             </div>
-            <button className="btn btn-ghost join-toggle" onClick={() => setShowKey(v => !v)}>
+            <button
+              ref={keyToggleRef}
+              className="btn btn-ghost join-toggle"
+              aria-expanded={showKey}
+              onClick={() => (showKey ? closeKeyForm() : setShowKey(true))}
+            >
               {showKey ? 'Cancel' : hasKey ? 'Change' : 'Add key'}
             </button>
           </div>
@@ -380,7 +399,7 @@ export const HomePage: React.FC = () => {
                 aria-label="OpenRouter API key"
                 placeholder="sk-or-v1-..."
                 value={keyInput}
-                onChange={e => setKeyInput(e.target.value)}
+                onChange={e => { setKeyInput(e.target.value); setKeyError(''); }}
                 autoFocus
               />
               <button type="submit" className="btn btn-primary" disabled={!keyInput.trim()}>
@@ -391,6 +410,9 @@ export const HomePage: React.FC = () => {
                 <button type="button" className="btn btn-ghost" onClick={handleRemoveKey}>
                   Remove key
                 </button>
+              )}
+              {keyError && (
+                <div className="join-error" role="alert">{keyError}</div>
               )}
             </form>
           )}

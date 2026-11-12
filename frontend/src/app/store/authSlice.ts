@@ -40,6 +40,8 @@ export const createAuthSlice: AppStoreSlice<AuthSlice> = (set, get) => ({
         return { success: false, error: 'Could not read user session from token' };
       }
 
+      // Logging in as someone else must not inherit the previous user's key.
+      if (get().currentUser?.id !== user.id) clearOpenRouterKey();
       setAccessToken(response.access_token);
       set({
         currentUser: user,
