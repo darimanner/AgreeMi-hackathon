@@ -5,7 +5,7 @@ from sqlalchemy import and_, select
 
 from clients.openai_client import summarize_analysis
 from core.logger import logger
-from deps import CurrentUser, DBSession
+from deps import CurrentUser, DBSession, OpenRouterKey
 from models.analysis_version import AnalysisVersion
 from models.chat import Chat, chat_clients, chat_developers
 from schemas.analysis import AnalysisResult, AnalysisSummaryResponse
@@ -65,6 +65,7 @@ async def generate_analysis_summary(
     chat_id: uuid.UUID,
     current_user: CurrentUser,
     session: DBSession,
+    openrouter_key: OpenRouterKey = None,
 ) -> AnalysisSummaryResponse:
     """Generate a Markdown TODO list from the most recent analysis version.
 
@@ -94,7 +95,7 @@ async def generate_analysis_summary(
     analysis = AnalysisResult.model_validate(latest.analysis_json)
 
     try:
-        return await summarize_analysis(analysis, latest.version_number)
+        return await summarize_analysis(analysis, latest.version_number, openrouter_key)
     except HTTPException:
         raise
     except Exception as exc:
