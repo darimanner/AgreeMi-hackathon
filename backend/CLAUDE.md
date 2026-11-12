@@ -130,6 +130,7 @@ Attachment
 - **Logging**: `logger.info("msg", key=value)` — never `print()`. Import from `core.logger`. Structlog intercepts stdlib logging (uvicorn, hypercorn, alembic, sqlalchemy).
 - **Router prefix**: set only in `main.py` via `include_router(..., prefix=...)`. Route files use bare `APIRouter()`.
 - **Passwords**: bcrypt with SHA-256 pre-hash (`core/security.py`) — avoids bcrypt's 72-byte truncation limit.
+- **OpenRouter key (BYOK)**: AI routes take the `OpenRouterKey` header dependency (`X-OpenRouter-Key`) and pass it to the client functions; `_client_for()` falls back to `AI__API_KEY` and raises 400 when neither is set. Never store or log the key.
 - **AI errors**: always propagate through `_raise_for_ai_error()` in `clients/openai_client.py` — maps OpenRouter status codes to proper HTTP responses (401→502, 429→429, 5xx→503, timeout→504).
 - **AI JSON robustness**: `_extract_json()` strips markdown fences, `_sanitize_json()` escapes bare control chars, automatic retry with `_FIX_SYSTEM_PROMPT` at temperature=0.0, fallback `AnalysisResult` if both fail. Same pattern for diff.
 - **WebSocket**: in-memory `ConnectionManager` — works for single process only. Replace `broadcast()` with Redis Pub/Sub for multi-worker.
