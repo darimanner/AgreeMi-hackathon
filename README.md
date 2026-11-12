@@ -71,14 +71,18 @@ npm run dev                 # http://localhost:5173
 2. Backend, [Render](https://render.com) Free: New > Blueprint, pick this repo. [`render.yaml`](render.yaml)
    creates the web service. When asked, set `DATABASE__URL` and `DATABASE__DIRECT_URL` to the string from
    step 1 and `AI__API_KEY` to an OpenRouter key; `JWT__SECRET` is generated. Migrations run on start.
+   After the first deploy, copy the service URL (`https://<name>.onrender.com`) from the Render dashboard.
 3. Frontend, Netlify: base directory `frontend` (build settings come from `frontend/netlify.toml`).
    Replace the Railway URL in `frontend/netlify.toml` (`VITE_WS_URL` and the `/backend/*` redirect)
-   with the Render service URL.
+   with the Render service URL. Netlify's proxy may time out before a sleeping Render service wakes up;
+   to avoid that, set `VITE_API_URL` to the Render URL as well so the browser calls it directly
+   (the backend allows all CORS origins by default).
 
 Free tier limits to know:
 
 - Render spins the service down after 15 minutes without traffic; the next request waits about a minute.
-  750 free instance hours per month, no persistent disk (uploads are stored in PostgreSQL, so nothing is lost).
+  750 free instance hours per month, no persistent disk (uploads are converted to text and stored in PostgreSQL,
+  so nothing is lost).
 - Render's own free PostgreSQL expires after 30 days, which is why the database lives on Neon.
 - Neon suspends idle compute and caps storage on the Free plan.
 
