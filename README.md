@@ -22,7 +22,7 @@ Built at a hackathon in April 2026.
 |------|------|
 | Backend | Python, FastAPI, SQLAlchemy (async), Alembic, PostgreSQL, OpenRouter (OpenAI SDK), uv |
 | Frontend | React 19, TypeScript, Vite, Zustand, React Router, react-markdown |
-| Deploy | Railway (backend, Docker), Netlify (frontend) |
+| Deploy | Render Free or Railway (backend, Docker), Neon (PostgreSQL), Netlify (frontend) |
 
 ## Repository layout
 
@@ -58,8 +58,33 @@ npm run dev                 # http://localhost:5173
 
 ## Deploy
 
-- Railway: root directory `/backend`, config file `/backend/railway.toml`
-- Netlify: base directory `frontend` (build settings come from `frontend/netlify.toml`)
+### Free stack: Neon + Render + Netlify
+
+1. Database, [Neon](https://neon.com) Free: create a project (AWS Frankfurt, next to the backend) and copy
+   the direct (non-pooled) connection string. Convert it for asyncpg: `postgresql://` becomes
+   `postgresql+asyncpg://`, `sslmode=require` becomes `ssl=require`, and drop `channel_binding`:
+
+   ```text
+   postgresql+asyncpg://USER:PASSWORD@ep-xxx.eu-central-1.aws.neon.tech/neondb?ssl=require
+   ```
+
+2. Backend, [Render](https://render.com) Free: New > Blueprint, pick this repo. [`render.yaml`](render.yaml)
+   creates the web service. When asked, set `DATABASE__URL` and `DATABASE__DIRECT_URL` to the string from
+   step 1 and `AI__API_KEY` to an OpenRouter key; `JWT__SECRET` is generated. Migrations run on start.
+3. Frontend, Netlify: base directory `frontend` (build settings come from `frontend/netlify.toml`).
+   Replace the Railway URL in `frontend/netlify.toml` (`VITE_WS_URL` and the `/backend/*` redirect)
+   with the Render service URL.
+
+Free tier limits to know:
+
+- Render spins the service down after 15 minutes without traffic; the next request waits about a minute.
+  750 free instance hours per month, no persistent disk (uploads are stored in PostgreSQL, so nothing is lost).
+- Render's own free PostgreSQL expires after 30 days, which is why the database lives on Neon.
+- Neon suspends idle compute and caps storage on the Free plan.
+
+### Railway (paid)
+
+Root directory `/backend`, config file `/backend/railway.toml`.
 
 ## Team
 
