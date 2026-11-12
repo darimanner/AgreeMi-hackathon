@@ -3,9 +3,10 @@ import { useNavigate, Link } from 'react-router-dom';
 import {
   Zap, Plus, MessageSquare, Clock, ArrowRight,
   LogOut, ChevronRight, User, Settings, Link2, UserPlus,
-  Bot, Terminal, Paperclip, Moon, Sun
+  Bot, Terminal, Paperclip, Moon, Sun, KeyRound
 } from 'lucide-react';
 import { useAppStore } from '../app/store';
+import { clearOpenRouterKey, getOpenRouterKey, setOpenRouterKey } from '../shared/api';
 import './home.css';
 
 function formatRelative(date: Date): string {
@@ -46,8 +47,25 @@ export const HomePage: React.FC = () => {
   const [joinLink, setJoinLink] = useState('');
   const [joinError, setJoinError] = useState('');
   const [showJoin, setShowJoin] = useState(false);
+  const [showKey, setShowKey] = useState(false);
+  const [keyInput, setKeyInput] = useState('');
+  const [hasKey, setHasKey] = useState(() => Boolean(getOpenRouterKey()));
 
   const joinChat = useAppStore(s => s.joinChat);
+
+  const handleSaveKey = (e: React.FormEvent) => {
+    e.preventDefault();
+    setOpenRouterKey(keyInput.trim());
+    setHasKey(true);
+    setKeyInput('');
+    setShowKey(false);
+  };
+
+  const handleRemoveKey = () => {
+    clearOpenRouterKey();
+    setHasKey(false);
+    setShowKey(false);
+  };
 
   const handleOpenChat = (chatId: string) => {
     setActiveChat(chatId);
@@ -191,7 +209,13 @@ export const HomePage: React.FC = () => {
             <User size={16} />
             Profile
           </button>
-          <button className="dash-nav-item">
+          <button
+            className="dash-nav-item"
+            onClick={() => {
+              setShowKey(true);
+              document.getElementById('openrouter-key')?.scrollIntoView({ behavior: 'smooth' });
+            }}
+          >
             <Settings size={16} />
             Settings
           </button>
@@ -324,6 +348,49 @@ export const HomePage: React.FC = () => {
               </button>
               {joinError && (
                 <div className="join-error">{joinError}</div>
+              )}
+            </form>
+          )}
+        </div>
+
+        {/* OpenRouter API key (bring your own) */}
+        <div className="join-section glass" id="openrouter-key">
+          <div className="join-section-header">
+            <KeyRound size={16} style={{ color: 'var(--lime-400)' }} />
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 14 }}>OpenRouter API key</div>
+              <div className="text-xs text-muted">
+                {hasKey
+                  ? 'Saved in this browser and used for AI commands'
+                  : <>AI commands run on your key, get one at{' '}
+                      <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer">openrouter.ai/keys</a></>}
+              </div>
+            </div>
+            <button className="btn btn-ghost join-toggle" onClick={() => setShowKey(v => !v)}>
+              {showKey ? 'Cancel' : hasKey ? 'Change' : 'Add key'}
+            </button>
+          </div>
+
+          {showKey && (
+            <form className="join-form" onSubmit={handleSaveKey}>
+              <input
+                className="input"
+                type="password"
+                autoComplete="off"
+                aria-label="OpenRouter API key"
+                placeholder="sk-or-v1-..."
+                value={keyInput}
+                onChange={e => setKeyInput(e.target.value)}
+                autoFocus
+              />
+              <button type="submit" className="btn btn-primary" disabled={!keyInput.trim()}>
+                <KeyRound size={14} />
+                Save key
+              </button>
+              {hasKey && (
+                <button type="button" className="btn btn-ghost" onClick={handleRemoveKey}>
+                  Remove key
+                </button>
               )}
             </form>
           )}
