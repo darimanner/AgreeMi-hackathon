@@ -1,7 +1,7 @@
 from typing import Annotated
 import uuid
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -59,3 +59,5 @@ async def get_current_user(
 # Convenient type alias for route signatures.
 CurrentUser = Annotated[User, Depends(get_current_user)]
 DBSession = Annotated[AsyncSession, Depends(get_session)]
+# User's own OpenRouter key; never stored or logged, only forwarded to OpenRouter.
+OpenRouterKey = Annotated[str | None, Header(alias="X-OpenRouter-Key", max_length=256)]

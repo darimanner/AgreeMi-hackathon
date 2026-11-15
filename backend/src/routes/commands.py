@@ -8,7 +8,7 @@ from clients.openai_client import analyze_document, diff_analyses, summarize_mes
 from config import settings
 from core.logger import logger
 from core.ws_manager import manager
-from deps import CurrentUser, DBSession
+from deps import CurrentUser, DBSession, OpenRouterKey
 from models.analysis_version import AnalysisVersion
 from models.chat import Chat, chat_clients, chat_developers
 from models.file import Attachment
@@ -114,6 +114,7 @@ async def run_command(
     payload: CommandRequest,
     current_user: CurrentUser,
     session: DBSession,
+    openrouter_key: OpenRouterKey = None,
 ) -> CommandResponse:
     """Execute a slash command in the specified chat.
 
@@ -132,38 +133,10 @@ async def run_command(
     chat = await _get_participant_chat(chat_id, current_user.id, session)
 
     if payload.command == CommandName.UPDATE:
-        result = await session.execute(
-            select(Message)
-            .where(Message.chat_id == chat_id)
-            .order_by(Message.created_at.desc())
-            .limit(20)
-        )
-        recent = result.scalars().all()
-        if not recent:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="No messages to summarize",
-            )
-
-        # Reverse to chronological order for the summarizer.
-        texts = [m.content for m in reversed(recent)]
-        try:
-            summary = await summarize_messages(texts)
-        except Exception as exc:
-            logger.error("/update AI call failed", error=str(exc))
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY, detail="AI request failed"
-            ) from exc
-
-        msg = await _save_and_broadcast(chat_id, MessageRole.SYSTEM, summary, session)
-        return CommandResponse(
-            command=payload.command,
-            result=summary,
-            message=MessageOut.model_validate(msg),
-        )
+        return await _run_update(chat_id, payload.command, session, openrouter_key)
 
     if payload.command == CommandName.DIFF:
-        return await _run_diff(chat_id, payload.command, session)
+        return await _run_diff(chat_id, payload.command, session, openrouter_key)
 
     # CommandName.ANALYZE
     att_result = await session.execute(
@@ -185,7 +158,9 @@ async def run_command(
         )
 
     try:
-        analysis = await analyze_document(attachment.markdown_content)
+        analysis = await analyze_document(attachment.markdown_content, openrouter_key)
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.error(
             "/analyze AI call failed", attachment_id=str(attachment.id), error=str(exc)
@@ -239,10 +214,50 @@ async def run_command(
     )
 
 
+async def _run_update(
+    chat_id: uuid.UUID,
+    command: CommandName,
+    session: DBSession,
+    openrouter_key: str | None,
+) -> CommandResponse:
+    result = await session.execute(
+        select(Message)
+        .where(Message.chat_id == chat_id)
+        .order_by(Message.created_at.desc())
+        .limit(20)
+    )
+    recent = result.scalars().all()
+    if not recent:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="No messages to summarize",
+        )
+
+    # Reverse to chronological order for the summarizer.
+    texts = [m.content for m in reversed(recent)]
+    try:
+        summary = await summarize_messages(texts, openrouter_key)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("/update AI call failed", error=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail="AI request failed"
+        ) from exc
+
+    msg = await _save_and_broadcast(chat_id, MessageRole.SYSTEM, summary, session)
+    return CommandResponse(
+        command=command,
+        result=summary,
+        message=MessageOut.model_validate(msg),
+    )
+
+
 async def _run_diff(
     chat_id: uuid.UUID,
     command: CommandName,
     session: DBSession,
+    openrouter_key: str | None,
 ) -> CommandResponse:
     versions_result = await session.execute(
         select(AnalysisVersion)
@@ -264,7 +279,7 @@ async def _run_diff(
 
     try:
         diff = await diff_analyses(
-            a_old, a_new, v_old.version_number, v_new.version_number
+            a_old, a_new, v_old.version_number, v_new.version_number, openrouter_key
         )
     except HTTPException:
         raise

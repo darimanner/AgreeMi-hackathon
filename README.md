@@ -14,6 +14,7 @@ Built at a hackathon in April 2026.
 - `/analyze`: AI review of a document, findings with severity, saved as versions
 - `/diff`: what changed between two analysis versions
 - `/summary`: actionable TODO list from the latest analysis
+- Bring your own OpenRouter key: each user can add a key in Settings; the server key is an optional fallback
 - JWT auth with `client` and `developer` roles
 
 ## Stack
@@ -39,7 +40,7 @@ Backend (needs Docker for PostgreSQL):
 
 ```bash
 cd backend
-cp .env.example .env        # set JWT__SECRET and AI__API_KEY
+cp .env.example .env        # set JWT__SECRET; AI__API_KEY is optional (users can add their own key)
 docker compose up -d db
 make setup
 make start-dev              # http://localhost:8000, Swagger at /docs

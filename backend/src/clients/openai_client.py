@@ -12,10 +12,24 @@ from schemas.analysis import (
     FindingChange,
 )
 
+# Never used directly: _client_for() always binds a real key via with_options().
 _client = AsyncOpenAI(
-    api_key=settings.ai.api_key,
+    api_key=settings.ai.api_key or "unset",
     base_url=settings.ai.base_url,
 )
+
+
+def _client_for(api_key: str | None) -> AsyncOpenAI:
+    """Bind the user's OpenRouter key, falling back to the server's AI__API_KEY."""
+    key = api_key or settings.ai.api_key
+    if not key:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="OpenRouter API key required: add your key in Settings on the chats page",
+        )
+    # with_options() reuses the parent's HTTP connection pool.
+    return _client.with_options(api_key=key)
+
 
 # ---------------------------------------------------------------------------
 # System prompts
@@ -246,8 +260,8 @@ def _raise_for_ai_error(exc: Exception) -> None:
     if isinstance(exc, APIStatusError):
         code = exc.status_code
         if code == 401:
-            logger.error(
-                "OpenRouter authentication failed — check AI_API_KEY", status=code
+            logger.warning(
+                "OpenRouter rejected the API key (user's or AI__API_KEY)", status=code
             )
             raise HTTPException(
                 status.HTTP_502_BAD_GATEWAY,
@@ -303,14 +317,15 @@ def _raise_for_ai_error(exc: Exception) -> None:
 # ---------------------------------------------------------------------------
 
 
-async def analyze_document(text: str) -> AnalysisResult:
+async def analyze_document(text: str, api_key: str | None) -> AnalysisResult:
+    client = _client_for(api_key)
     logger.info(
         "Sending document for AI analysis", model=settings.ai.model, chars=len(text)
     )
 
     # --- Attempt 1: normal request ---
     try:
-        response = await _client.chat.completions.create(
+        response = await client.chat.completions.create(
             model=settings.ai.model,
             response_format={"type": "json_object"},
             messages=[
@@ -364,7 +379,7 @@ async def analyze_document(text: str) -> AnalysisResult:
         raw_len=len(raw),
     )
     try:
-        fix_response = await _client.chat.completions.create(
+        fix_response = await client.chat.completions.create(
             model=settings.ai.model,
             response_format={"type": "json_object"},
             messages=[
@@ -420,14 +435,15 @@ async def analyze_document(text: str) -> AnalysisResult:
     )
 
 
-async def summarize_messages(messages: list[str]) -> str:
+async def summarize_messages(messages: list[str], api_key: str | None) -> str:
+    client = _client_for(api_key)
     transcript = "\n".join(f"- {m}" for m in messages)
     logger.info(
         "Summarizing messages for /update", count=len(messages), model=settings.ai.model
     )
 
     try:
-        response = await _client.chat.completions.create(
+        response = await client.chat.completions.create(
             model=settings.ai.model,
             messages=[
                 {"role": "system", "content": _UPDATE_SYSTEM_PROMPT},
@@ -459,7 +475,9 @@ async def diff_analyses(
     v_new: AnalysisResult,
     old_version: int,
     new_version: int,
+    api_key: str | None,
 ) -> DiffResult:
+    client = _client_for(api_key)
     logger.info(
         "Sending diff request to AI",
         model=settings.ai.model,
@@ -469,7 +487,7 @@ async def diff_analyses(
     user_msg = _build_diff_user_message(v_old, v_new)
 
     try:
-        response = await _client.chat.completions.create(
+        response = await client.chat.completions.create(
             model=settings.ai.model,
             response_format={"type": "json_object"},
             messages=[
@@ -511,7 +529,7 @@ async def diff_analyses(
         finish_reason=finish_reason,
     )
     try:
-        fix_response = await _client.chat.completions.create(
+        fix_response = await client.chat.completions.create(
             model=settings.ai.model,
             response_format={"type": "json_object"},
             messages=[
@@ -546,8 +564,9 @@ async def diff_analyses(
 
 
 async def summarize_analysis(
-    analysis: AnalysisResult, version: int
+    analysis: AnalysisResult, version: int, api_key: str | None
 ) -> AnalysisSummaryResponse:
+    client = _client_for(api_key)
     lines = [
         f"Score: {analysis.score}/100",
         "",
@@ -567,7 +586,7 @@ async def summarize_analysis(
     )
 
     try:
-        response = await _client.chat.completions.create(
+        response = await client.chat.completions.create(
             model=settings.ai.model,
             messages=[
                 {"role": "system", "content": _ANALYSIS_SUMMARY_PROMPT},

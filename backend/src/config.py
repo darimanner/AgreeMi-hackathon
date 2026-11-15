@@ -25,7 +25,8 @@ class JwtSettings(BaseModel):
 class AISettings(BaseModel):
     """AI provider settings (OpenRouter)."""
 
-    api_key: str
+    # Fallback when the user sends no X-OpenRouter-Key; unset means users must bring a key.
+    api_key: str | None = None
     base_url: str = "https://openrouter.ai/api/v1"
     model: str = "openai/gpt-oss-120b:free"
 
@@ -39,7 +40,7 @@ class Settings(BaseSettings):
 
     database: DatabaseSettings
     jwt: JwtSettings
-    ai: AISettings
+    ai: AISettings = AISettings()
 
     model_config = SettingsConfigDict(
         env_file=".env",
