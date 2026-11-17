@@ -23,7 +23,7 @@ A workspace where developers and clients agree on requirements. Each project is 
 the developer creates it, invites the client with a link, both upload requirement documents,
 and an AI assistant reviews them for gaps, contradictions and risks.
 
-Built at a hackathon in April 2026.
+Built at a hackathon in April 2026. [Transilvania CodeStorm@MI 2026](https://mateinfo.unitbv.ro/ro/evenimente/656-transilvania-codestorm-mi-2026-hackathon.html)
 
 ## Features
 
