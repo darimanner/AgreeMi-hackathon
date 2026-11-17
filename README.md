@@ -1,5 +1,24 @@
 # AgreeMi
 
+[![Live demo](https://img.shields.io/badge/demo-live-brightgreen?style=flat-square)](https://willowy-kitsune-1a8665.netlify.app)
+[![Netlify Status](https://api.netlify.com/api/v1/badges/5ad7f4c7-b691-4ad5-9925-44e5223e3982/deploy-status)](https://app.netlify.com/projects/willowy-kitsune-1a8665/deploys)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square)](LICENSE)
+
+[![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=flat-square&logo=python&logoColor=white)](backend/pyproject.toml)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)](https://www.postgresql.org)
+[![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](frontend/package.json)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![OpenRouter](https://img.shields.io/badge/AI-OpenRouter-6566F1?style=flat-square&logo=openrouter&logoColor=white)](https://openrouter.ai)
+
+[![Frontend on Netlify](https://img.shields.io/badge/frontend-Netlify-00C7B7?style=flat-square&logo=netlify&logoColor=white)](https://willowy-kitsune-1a8665.netlify.app)
+[![Backend on Render](https://img.shields.io/badge/backend-Render-46E3B7?style=flat-square&logo=render&logoColor=black)](https://agreemi-backend.onrender.com/docs)
+[![Database on Neon](https://img.shields.io/badge/database-Neon-00E599?style=flat-square&logo=neon&logoColor=black)](https://neon.com)
+
+**Live demo: https://willowy-kitsune-1a8665.netlify.app** (free hosting: the backend sleeps when idle, so the
+first request can take about a minute). AI features need your own [OpenRouter key](https://openrouter.ai/keys):
+add it in Settings on the chats page. Free models work with a free key.
+
 A workspace where developers and clients agree on requirements. Each project is a chat:
 the developer creates it, invites the client with a link, both upload requirement documents,
 and an AI assistant reviews them for gaps, contradictions and risks.
@@ -23,7 +42,7 @@ Built at a hackathon in April 2026.
 |------|------|
 | Backend | Python, FastAPI, SQLAlchemy (async), Alembic, PostgreSQL, OpenRouter (OpenAI SDK), uv |
 | Frontend | React 19, TypeScript, Vite, Zustand, React Router, react-markdown |
-| Deploy | Render Free or Railway (backend, Docker), Neon (PostgreSQL), Netlify (frontend) |
+| Deploy | Render Free (backend, Docker), Neon (PostgreSQL), Netlify (frontend) |
 
 ## Repository layout
 
@@ -62,22 +81,15 @@ npm run dev                 # http://localhost:5173
 ### Free stack: Neon + Render + Netlify
 
 1. Database, [Neon](https://neon.com) Free: create a project (AWS Frankfurt, next to the backend) and copy
-   the direct (non-pooled) connection string. Convert it for asyncpg: `postgresql://` becomes
-   `postgresql+asyncpg://`, `sslmode=require` becomes `ssl=require`, and drop `channel_binding`:
-
-   ```text
-   postgresql+asyncpg://USER:PASSWORD@ep-xxx.eu-central-1.aws.neon.tech/neondb?ssl=require
-   ```
-
+   the direct (non-pooled) connection string. Paste it as is: the backend rewrites `postgresql://` and
+   `sslmode` for asyncpg.
 2. Backend, [Render](https://render.com) Free: New > Blueprint, pick this repo. [`render.yaml`](render.yaml)
    creates the web service. When asked, set `DATABASE__URL` and `DATABASE__DIRECT_URL` to the string from
-   step 1 and `AI__API_KEY` to an OpenRouter key; `JWT__SECRET` is generated. Migrations run on start.
-   After the first deploy, copy the service URL (`https://<name>.onrender.com`) from the Render dashboard.
+   step 1; `JWT__SECRET` is generated. No OpenRouter key is needed on the server: users add their own.
+   Set `AI__API_KEY` only if the server should pay for users without a key. Migrations run on start.
 3. Frontend, Netlify: base directory `frontend` (build settings come from `frontend/netlify.toml`).
-   Replace the Railway URL in `frontend/netlify.toml` (`VITE_WS_URL` and the `/backend/*` redirect)
-   with the Render service URL. Netlify's proxy may time out before a sleeping Render service wakes up;
-   to avoid that, set `VITE_API_URL` to the Render URL as well so the browser calls it directly
-   (the backend allows all CORS origins by default).
+   Put your Render service URL into `VITE_API_URL` and `VITE_WS_URL` there. The browser calls Render
+   directly, because Netlify's proxy times out before a sleeping Render service wakes up.
 
 Free tier limits to know:
 
@@ -86,10 +98,6 @@ Free tier limits to know:
   so nothing is lost).
 - Render's own free PostgreSQL expires after 30 days, which is why the database lives on Neon.
 - Neon suspends idle compute and caps storage on the Free plan.
-
-### Railway (paid)
-
-Root directory `/backend`, config file `/backend/railway.toml`.
 
 ## Team
 
