@@ -1,6 +1,7 @@
 from pydantic import BaseModel, ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import make_url
+from sqlalchemy.exc import ArgumentError
 
 from core.logger import logger
 
@@ -22,7 +23,10 @@ class DatabaseSettings(BaseModel):
         A plain postgresql:// makes SQLAlchemy load psycopg2, which is not installed,
         and asyncpg rejects sslmode and channel_binding.
         """
-        url = make_url(value)
+        try:
+            url = make_url(value.strip())
+        except ArgumentError as e:
+            raise ValueError("not a valid database URL") from e
         if not url.drivername.startswith("postgres"):
             return value
         query = dict(url.query)
