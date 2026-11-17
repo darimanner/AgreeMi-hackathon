@@ -2,15 +2,11 @@
   command = "npm run build"
   publish = "dist"
 
+# The browser calls Render directly: Netlify's proxy times out before a sleeping
+# free Render service wakes up (about a minute). The backend allows all CORS origins.
 [build.environment]
-  VITE_API_URL = "/backend"
-  VITE_WS_URL = "https://hackathon-backend-starter-2026-production.up.railway.app"
-
-[[redirects]]
-  from = "/backend/*"
-  to = "https://hackathon-backend-starter-2026-production.up.railway.app/:splat"
-  status = 200
-  force = true
+  VITE_API_URL = "https://agreemi-backend.onrender.com"
+  VITE_WS_URL = "https://agreemi-backend.onrender.com"
 
 [[redirects]]
   from = "/*"

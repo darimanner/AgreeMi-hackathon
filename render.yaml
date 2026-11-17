@@ -19,5 +19,5 @@ services:
         sync: false
       - key: JWT__SECRET
         generateValue: true
-      - key: AI__API_KEY
-        sync: false
+# AI__API_KEY is left out on purpose: users add their own OpenRouter key in the app.
+# Add it in the dashboard only if the server should pay for users without a key.
