@@ -90,7 +90,7 @@ app.include_router(ws_router, prefix="/ws", tags=["WebSocket"])
 
 
 # ------------------------------------------------------------------
-# Health check (used by Railway to verify the container is alive)
+# Health check (Render healthCheckPath)
 # ------------------------------------------------------------------
 @app.get("/health", tags=["Health"], summary="Health check")
 async def health() -> dict[str, str]:

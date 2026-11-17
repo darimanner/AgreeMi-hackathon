@@ -1,4 +1,4 @@
-.PHONY: setup requirements start start-dev init-alembic makemigrations migrate lint
+.PHONY: setup start start-dev init-alembic makemigrations migrate lint
 export PYTHONPATH := src
 ifneq (,$(wildcard .env))
   include .env
@@ -8,9 +8,6 @@ endif
 setup:
 	uv venv
 	uv sync
-
-requirements:
-	uv export --format requirements.txt > requirements.txt
 
 start:
 	uv run alembic upgrade head

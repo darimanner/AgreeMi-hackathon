@@ -25,14 +25,11 @@ make lint               # ruff check --fix + ruff format
 
 # Add dependency
 uv add <package>
-
-# Export requirements.txt (for Docker)
-make requirements
 ```
 
 `PYTHONPATH` must be `src` — all imports are flat: `from config import settings`, not `from src.config import ...`. The Makefile exports this automatically.
 
-**Production (Railway):** runs via Docker + hypercorn on port 8080. Migrations run automatically on `make start`.
+**Production (Render, see `render.yaml`):** runs via Docker + hypercorn on `$PORT`; migrations run on container start. Database URLs can be pasted as the provider gives them (`postgresql://...?sslmode=require`): `config.py` rewrites them for asyncpg.
 
 ## Environment
 
