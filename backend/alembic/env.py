@@ -22,8 +22,9 @@ from models import Base
 config = context.config
 
 # Override sqlalchemy.url from our pydantic settings so alembic.ini never
-# contains a real credential.
-config.set_main_option("sqlalchemy.url", settings.database.url)
+# contains a real credential. ConfigParser treats % as interpolation, and
+# URL-encoded passwords contain it.
+config.set_main_option("sqlalchemy.url", settings.database.url.replace("%", "%%"))
 
 # Interpret the config file for Python logging.
 if config.config_file_name is not None:
