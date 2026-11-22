@@ -64,7 +64,7 @@ export const AiAnalysisContent: React.FC<AiAnalysisContentProps> = ({
             <div className="sidebar-ai-icon"><Bot size={15} /></div>
             <div>
               <div className="sidebar-title">AI Analysis</div>
-              <div className="text-xs text-muted">Powered by GPT-4o</div>
+              <div className="text-xs text-muted">Powered by OpenRouter</div>
             </div>
           </div>
         </div>

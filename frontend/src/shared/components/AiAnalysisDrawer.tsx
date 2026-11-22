@@ -41,7 +41,7 @@ export const AiAnalysisDrawer: React.FC<AiAnalysisDrawerProps> = ({ chatId, isOp
             <div className="sidebar-ai-icon"><Bot size={15} /></div>
             <div>
               <div className="sidebar-title" id="ai-drawer-title">AI Analysis</div>
-              <div className="text-xs text-muted">Powered by GPT-4o</div>
+              <div className="text-xs text-muted">Powered by OpenRouter</div>
             </div>
           </div>
           <button className="ai-drawer-close" onClick={onClose} title="Close" aria-label="Close AI analysis">
