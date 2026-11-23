@@ -18,6 +18,7 @@
 **Live demo: https://willowy-kitsune-1a8665.netlify.app** (free hosting: the backend sleeps when idle, so the
 first request can take about a minute). AI works out of the box on a free model; an analysis takes 1-2 minutes.
 You can also add your own [OpenRouter key](https://openrouter.ai/keys) in Settings on the chats page.
+Chats with no new messages for 14 days are deleted.
 
 A workspace where developers and clients agree on requirements. Each project is a chat:
 the developer creates it, invites the client with a link, both upload requirement documents,
@@ -114,7 +115,8 @@ Free tier limits to know:
   750 free instance hours per month, no persistent disk (uploads are converted to text and stored in PostgreSQL,
   so nothing is lost).
 - Render's own free PostgreSQL expires after 30 days, which is why the database lives on Neon.
-- Neon suspends idle compute and caps storage on the Free plan.
+- Neon suspends idle compute and caps storage on the Free plan. To stay under the cap, the backend deletes chats
+  with no new messages for 14 days, and accounts in no chat, each time it starts (`backend/src/core/cleanup.py`).
 
 ## Team
 
