@@ -580,7 +580,7 @@ export const ChatPage: React.FC = () => {
               ref={fileInputRef}
               type="file"
               aria-label="Upload attachment"
-              accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg"
+              accept=".pdf,.docx,.txt"
               style={{ display: 'none' }}
               onChange={handleFile}
             />

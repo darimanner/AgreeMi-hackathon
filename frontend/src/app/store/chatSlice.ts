@@ -382,5 +382,7 @@ export const createChatSlice: AppStoreSlice<ChatSlice> = (set, get) => ({
           : room
       ),
     });
+    // Only the command caller gets the analysis in the response; the other side refetches it.
+    if (message.role === 'ai') void get().loadChats();
   },
 });
