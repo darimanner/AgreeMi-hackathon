@@ -450,7 +450,8 @@ async def summarize_messages(messages: list[str], api_key: str | None) -> str:
                 {"role": "user", "content": transcript},
             ],
             temperature=0.3,
-            max_tokens=300,
+            # Reasoning models spend max_tokens on thinking first; a tight cap leaves the reply empty.
+            max_tokens=8_000,
         )
     except Exception as exc:
         _raise_for_ai_error(exc)
@@ -593,7 +594,8 @@ async def summarize_analysis(
                 {"role": "user", "content": user_msg[:12_000]},
             ],
             temperature=0.3,
-            max_tokens=1000,
+            # See summarize_messages: room for reasoning tokens.
+            max_tokens=8_000,
         )
     except Exception as exc:
         _raise_for_ai_error(exc)
