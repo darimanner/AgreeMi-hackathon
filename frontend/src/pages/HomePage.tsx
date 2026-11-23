@@ -376,7 +376,7 @@ export const HomePage: React.FC = () => {
               <div className="text-xs text-muted" role="status">
                 {hasKey
                   ? 'Saved in this browser and used for AI commands'
-                  : <>AI commands run on your key, get one at{' '}
+                  : <>Run AI commands on your own key (optional if the server has one), get one at{' '}
                       <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer">openrouter.ai/keys</a></>}
               </div>
             </div>
