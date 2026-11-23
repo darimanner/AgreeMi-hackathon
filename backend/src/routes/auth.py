@@ -82,6 +82,9 @@ async def login(payload: LoginRequest, session: DBSession) -> TokenResponse:
     if user is None or not verify_password(payload.password, user.password_hash):
         raise invalid
 
-    token = create_access_token({"sub": str(user.id), "role": user.role})
+    # The SPA reads name and email from the token; there is no /me endpoint.
+    token = create_access_token(
+        {"sub": str(user.id), "role": user.role, "name": user.name, "email": user.email}
+    )
     logger.info("User logged in", user_id=str(user.id))
     return TokenResponse(access_token=token)

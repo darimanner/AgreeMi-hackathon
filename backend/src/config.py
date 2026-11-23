@@ -51,7 +51,9 @@ class AISettings(BaseModel):
     # Fallback when the user sends no X-OpenRouter-Key; unset means users must bring a key.
     api_key: str | None = None
     base_url: str = "https://openrouter.ai/api/v1"
-    model: str = "openai/gpt-oss-120b:free"
+    # Free OpenRouter models get retired without notice; on a 404 pick another
+    # ":free" model that supports response_format.
+    model: str = "nvidia/nemotron-3.5-super-vl:free"
 
 
 class Settings(BaseSettings):

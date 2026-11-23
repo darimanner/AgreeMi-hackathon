@@ -294,8 +294,8 @@ export const ChatPage: React.FC = () => {
   const getMessageAuthorName = (msg: Message) => {
     if (msg.authorId === currentUser?.id) return 'You';
     if (msg.role === 'ai') return 'AgreeMi AI';
-    const roleLabel = msg.role ? msg.role.charAt(0).toUpperCase() + msg.role.slice(1) : 'User';
-    return `${roleLabel} (${msg.authorId.slice(0, 4)})`;
+    // shortcut: messages carry no author name, only the role; add author_name to MessageOut to show names
+    return msg.role ? msg.role.charAt(0).toUpperCase() + msg.role.slice(1) : 'User';
   };
 
   // Command suggestions
