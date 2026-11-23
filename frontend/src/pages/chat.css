@@ -840,10 +840,11 @@
   padding: 12px;
   pointer-events: auto;
   position: absolute;
+  /* Stay inside the narrow sidebar, which clips overflow. */
+  right: 8px;
   top: calc(100% + 6px);
   transform: translateY(-4px);
   transition: opacity 120ms ease, transform 120ms ease;
-  width: max-content;
   z-index: 50;
 }
 .document-block:hover .document-popover,
