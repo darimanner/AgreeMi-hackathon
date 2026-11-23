@@ -16,8 +16,8 @@
 [![Database on Neon](https://img.shields.io/badge/database-Neon-00E599?style=flat-square&logo=neon&logoColor=black)](https://neon.com)
 
 **Live demo: https://willowy-kitsune-1a8665.netlify.app** (free hosting: the backend sleeps when idle, so the
-first request can take about a minute). AI features need your own [OpenRouter key](https://openrouter.ai/keys):
-add it in Settings on the chats page. Free models work with a free key.
+first request can take about a minute). AI works out of the box on a free model; an analysis takes 1-2 minutes.
+You can also add your own [OpenRouter key](https://openrouter.ai/keys) in Settings on the chats page.
 
 A workspace where developers and clients agree on requirements. Each project is a chat:
 the developer creates it, invites the client with a link, both upload requirement documents,
@@ -25,11 +25,27 @@ and an AI assistant reviews them for gaps, contradictions and risks.
 
 Built at a hackathon in April 2026. [Transilvania CodeStorm@MI 2026](https://mateinfo.unitbv.ro/ro/evenimente/656-transilvania-codestorm-mi-2026-hackathon.html)
 
+## Screenshots
+
+The client uploads a spec, and the AI reviews it right in the chat:
+
+![Client view: spec upload and AI review](docs/screenshots/client-chat.png)
+
+The developer compares two spec versions with `/diff`; the sidebar highlights findings in the document:
+
+![Developer view: /diff and a finding in the reviewed document](docs/screenshots/developer-diff.png)
+
+`/summary` turns the latest analysis into a TODO list:
+
+![Developer view: /summary TODO list](docs/screenshots/developer-summary.png)
+
+![Landing page](docs/screenshots/landing.png)
+
 ## Features
 
 - Chats between developers and clients, joined via an invite code
 - Real-time messages over WebSocket
-- Document upload (text extracted with markitdown)
+- Document upload: PDF, DOCX, TXT (text extracted with markitdown)
 - `/analyze`: AI review of a document, findings with severity, saved as versions
 - `/diff`: what changed between two analysis versions
 - `/summary`: actionable TODO list from the latest analysis
@@ -86,7 +102,8 @@ npm run dev                 # http://localhost:5173
 2. Backend, [Render](https://render.com) Free: New > Blueprint, pick this repo. [`render.yaml`](render.yaml)
    creates the web service. When asked, set `DATABASE__URL` and `DATABASE__DIRECT_URL` to the string from
    step 1; `JWT__SECRET` is generated. No OpenRouter key is needed on the server: users add their own.
-   Set `AI__API_KEY` only if the server should pay for users without a key. Migrations run on start.
+   Set `AI__API_KEY` only if the server should pay for users without a key (the live demo sets it, with a
+   free model). Migrations run on start.
 3. Frontend, Netlify: base directory `frontend` (build settings come from `frontend/netlify.toml`).
    Put your Render service URL into `VITE_API_URL` and `VITE_WS_URL` there. The browser calls Render
    directly, because Netlify's proxy times out before a sleeping Render service wakes up.
