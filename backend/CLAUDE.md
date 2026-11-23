@@ -60,7 +60,7 @@ AI__MODEL=nvidia/nemotron-3.5-super-vl:free
 
 ```text
 src/
-  main.py            — FastAPI app, lifespan (DB ping), CORSMiddleware, router registration
+  main.py            — FastAPI app, lifespan (DB ping, stale data cleanup), CORSMiddleware, router registration
   config.py          — pydantic-settings; process exits on missing/invalid env vars
   deps.py            — CurrentUser, DBSession — FastAPI Annotated type aliases
   clients/
@@ -70,6 +70,7 @@ src/
     logger.py        — structlog (ConsoleRenderer debug / JSONRenderer prod); InterceptHandler
     security.py      — hash_password / verify_password (bcrypt + SHA-256 pre-hash), JWT
     ws_manager.py    — in-memory WebSocket ConnectionManager (single-process)
+    cleanup.py       - delete_stale_data(): chats idle 14 days, accounts in no chat; demo accounts kept
   models/
     base.py               — DeclarativeBase + TimestampMixin (created_at, updated_at)
     user.py               — User, UserRole (client | developer)
